@@ -1,0 +1,21 @@
+# /etc/systemd/system/wise_pi.service
+
+[Unit]
+Description=Wise-Pi Quote Display
+After=network.target
+
+[Service]
+Type=simple
+User=steve
+WorkingDirectory=/home/steve/wise_pi
+ExecStart=/home/steve/wise_pi/bin/python /home/steve/wise_pi/quote_display.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/steve/wise_pi/quote_display.log
+StandardError=append:/home/steve/wise_pi/quote_display.log
+Environment="PYTHONUNBUFFERED=1"
+Environment="DISPLAY=:0"
+
+[Install]
+WantedBy=multi-user.target
+

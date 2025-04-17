@@ -1,0 +1,39 @@
+# Ignore virtual environment
+venv/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Editor / IDE junk
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compiled objects or builds
+*.so
+*.egg-info/
+build/
+dist/
+
+# Waveshare build artifacts (if you later pull in their C code)
+*.o
+*.out
+*.a
+
+# Backup archives
+*.zip
+*.tar.gz
