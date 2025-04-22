@@ -5,7 +5,6 @@ Perfect for your desk, nightstand, bookshelf, or as a gift.
 
 
 ![Wise-Pi Image](images/20250422_161946.jpg)
-![Wise-Pi Image](images/20250422_161921.jpg)
 
 
 ---
@@ -92,7 +91,7 @@ sudo systemctl status wise-pi.service
 
 - The included STLs provide a desk-friendly enclosure at a 20° angle
 - Designed for flush display mounting with visible screen window
-- Back panel is designed to snap-fit or screw into place (coming soon)
+- Back panel is designed to snap-fit or screw into place (may need some sanding)
 - I used hot glue to securee the display to the mounting posts.
 
 Files:
@@ -103,8 +102,9 @@ Files:
 
 ---
 
-![Wise-Pi Image](images/front_view.jpg)
-![Wise-Pi Image](images/side_view.jpg)
+<img src="images/front_view.jpg" alt="Front view." width="400"/>
+<img src="images/side_view.jpg" alt="Side view." width="400"/>
+
 
 ---
 
