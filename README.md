@@ -3,16 +3,15 @@
 A minimalist Raspberry Pi Zero project that displays rotating quotes on a Waveshare 2.7" e-paper display.
 Perfect for your desk, nightstand, bookshelf, or as a gift.
 
-
-![Wise-Pi Image](images/20250422_161946.jpg)
-
+<img src="images/20250422_161946.jpg" alt="Wise-Pi" width="600"/>
 
 ---
 
 ## 📷 Overview
 
 Wise-Pi is a self-contained quote display that fetches and displays inspirational quotes from the internet 
-every 30 minutes. The screen is a crisp, power-efficient e-paper display, so it stays readable even with power
+using Wi-Fi. The frequency of new quote retrieval is configurable. No keyboard, mouse, or screen is needed — just 
+power it on and enjoy. The screen is a crisp, power-efficient e-paper display, so it stays readable even during power
 interruptions.
 
 ---
@@ -27,7 +26,7 @@ interruptions.
 Optional:
 
 - 3D printed enclosure (STL files provided)
---
+
 
 ## 🔌 Software Setup
 
@@ -66,7 +65,7 @@ pip install -r requirements.txt
 python quote_display.py
 ```
 
-### (Optional) Enable on boot (run asd a service)
+### 6. Enable on boot (run as a service)
 
 Edit the wise-pi.service file to contain valid paths for your environment.
 Then...
@@ -92,7 +91,7 @@ sudo systemctl status wise-pi.service
 - The included STLs provide a desk-friendly enclosure at a 20° angle
 - Designed for flush display mounting with visible screen window
 - Back panel is designed to snap-fit or screw into place (may need some sanding)
-- I used hot glue to securee the display to the mounting posts.
+- I used hot glue to secure the display to the mounting posts.
 
 Files:
 
