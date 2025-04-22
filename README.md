@@ -48,7 +48,6 @@ cd wise-pi
 ### 3. Clone this repository
 
 ```bash
-cd wise-pi
 git clone https://github.com/stvenmobile/wise-pi.git
 ```
 
@@ -71,6 +70,7 @@ python quote_display.py
 ### (Optional) Enable on boot (run asd a service)
 
 Edit the wise-pi.service file to contain valid paths for your environment.
+Then...
 
 ```bash
 sudo cp wise-pi.service /etc/systemd/system/wise-pi.service
@@ -80,7 +80,7 @@ sudo systemctl restart wise-pi.service
 
 ```
 
-Veridty service is running:
+Verify the service is running:
 
 ```bash
 sudo systemctl status wise-pi.service
@@ -93,12 +93,13 @@ sudo systemctl status wise-pi.service
 - The included STLs provide a desk-friendly enclosure at a 20° angle
 - Designed for flush display mounting with visible screen window
 - Back panel is designed to snap-fit or screw into place (coming soon)
+- I used hot glue to securee the display to the mounting posts.
 
 Files:
 
-- `stl/front_face.stl`
-- `stl/full_case.stl`
-- (Back panel WIP)
+- `case.stl` - Main case
+- `back.stl` - Back Panel
+- 'epaper case v2.3mf' - 3mf version
 
 ---
 
@@ -106,15 +107,9 @@ Files:
 
 - `quote_display.py` – main script
 - `requirements.txt` – Python dependencies
-- `stl/` – printable case parts
-- `images/` – build photos, renders, and screenshots
-- `docs/setup.md` – optional extended instructions
-
----
-
-## 📸 Photos
-
-*Coming soon: photos of the assembled unit and print-ready model previews.*
+- 'wise-pi.service' - service definition file
+- `stl_files/` – printable case parts
+- `images/` – build photos
 
 ---
 
@@ -135,7 +130,6 @@ MIT License — free to use, share, remix, and improve.
 
 The quiet joy of slow technology.
 
-If you build one or remix it, please share a photo or fork it — we'd love to see it.
+If you build one or remix it, please share a photo — I'd love to see it.
 
-**Hackaday.io project page coming soon!**
 
