@@ -36,9 +36,6 @@ Use Raspberry Pi Imager to flash the SD card. Enable SSH and set up Wi-Fi if des
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
-
-### 3. Clone this repository
-
 ```bash
 git clone https://github.com/yourusername/Wise-Pi.git
 cd Wise-Pi
@@ -46,16 +43,20 @@ cd Wise-Pi
 
 ## 📦 Python Setup
 
-After installing system dependencies (see below), clone the repository and set up the virtual environment:
+After installing system dependencies (see below), 
+clone the repository and set up the virtual environment:
+
+
+
+
+### 3. Clone this repository
 
 ```bash
 git clone https://github.com/yourusername/wise-pi.git
 cd wise-pi
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-
-
+```
 
 ### 4. Set up Python environment
 
@@ -73,8 +74,6 @@ python quote_display.py
 ```
 
 ### (Optional) Enable on boot with cron:
-
-
 
 ```bash
 crontab -e
