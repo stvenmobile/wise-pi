@@ -5,7 +5,7 @@ A minimalist Raspberry Pi Zero project that displays rotating quotes on a Wavesh
 Perfect for your desk, nightstand, bookshelf, or as a gift.
 
 ![Wise-Pi Image](images/20250422_161946.jpg)
-
+![Wise-Pi Image](images/20250422_161921.jpg)
 
 
 ---
