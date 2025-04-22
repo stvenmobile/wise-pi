@@ -4,11 +4,17 @@ A minimalist Raspberry Pi Zero project that displays rotating quotes on a Wavesh
 
 Perfect for your desk, nightstand, bookshelf, or as a gift.
 
+![Wise-Pi Image](images/20250422_161946.jpg)
+
+
+
 ---
 
 ## 📷 Overview
 
-Wise-Pi is a self-contained quote display that fetches and displays inspirational quotes from the internet every 30 minutes. The screen is a crisp, power-efficient e-paper display, so it stays readable even with power interruptions.
+Wise-Pi is a self-contained quote display that fetches and displays inspirational quotes from the internet 
+every 30 minutes. The screen is a crisp, power-efficient e-paper display, so it stays readable even with power
+interruptions.
 
 ---
 
@@ -22,8 +28,7 @@ Wise-Pi is a self-contained quote display that fetches and displays inspirationa
 Optional:
 
 - 3D printed enclosure (STL files provided)
-
----
+--
 
 ## 🔌 Software Setup
 
@@ -35,35 +40,25 @@ Use Raspberry Pi Imager to flash the SD card. Enable SSH and set up Wi-Fi if des
 
 ```bash
 sudo apt update && sudo apt upgrade -y
+
+mkdir wise-pi
+cd wise-pi
 ```
-```bash
-git clone https://github.com/yourusername/Wise-Pi.git
-cd Wise-Pi
-```
-
-## 📦 Python Setup
-
-After installing system dependencies (see below), 
-clone the repository and set up the virtual environment:
-
-
-
 
 ### 3. Clone this repository
 
 ```bash
-git clone https://github.com/yourusername/wise-pi.git
 cd wise-pi
-python3 -m venv venv
-source venv/bin/activate
+git clone https://github.com/stvenmobile/wise-pi.git
 ```
 
 ### 4. Set up Python environment
 
 ```bash
+cd wise-pi
 sudo apt install python3-pip python3-venv -y
-python3 -m venv quoteenv
-source quoteenv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -73,16 +68,22 @@ pip install -r requirements.txt
 python quote_display.py
 ```
 
-### (Optional) Enable on boot with cron:
+### (Optional) Enable on boot (run asd a service)
+
+Edit the wise-pi.service file to contain valid paths for your environment.
 
 ```bash
-crontab -e
+sudo cp wise-pi.service /etc/systemd/system/wise-pi.service
+sudo systemctl daemon-reload
+sudo systemctl enable wise-pi.service
+sudo systemctl restart wise-pi.service
+
 ```
 
-Add this line:
+Veridty service is running:
 
 ```bash
-@reboot /home/pi/Wise-Pi/quoteenv/bin/python /home/pi/Wise-Pi/quote_display.py
+sudo systemctl status wise-pi.service
 ```
 
 ---
