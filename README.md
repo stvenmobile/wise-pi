@@ -1,8 +1,8 @@
 # Wise-Pi
 
 A minimalist Raspberry Pi Zero project that displays rotating quotes on a Waveshare 2.7" e-paper display.
-
 Perfect for your desk, nightstand, bookshelf, or as a gift.
+
 
 ![Wise-Pi Image](images/20250422_161946.jpg)
 ![Wise-Pi Image](images/20250422_161921.jpg)
@@ -99,7 +99,12 @@ Files:
 
 - `case.stl` - Main case
 - `back.stl` - Back Panel
-- 'epaper case v2.3mf' - 3mf version
+- `epaper case v2.3mf` - 3mf version
+
+---
+
+![Wise-Pi Image](images/front_view.jpg)
+![Wise-Pi Image](images/side_view.jpg)
 
 ---
 
@@ -107,7 +112,7 @@ Files:
 
 - `quote_display.py` – main script
 - `requirements.txt` – Python dependencies
-- 'wise-pi.service' - service definition file
+- `wise-pi.service` - service definition file
 - `stl_files/` – printable case parts
 - `images/` – build photos
 
