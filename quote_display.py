@@ -67,13 +67,13 @@ def display_quote(quote, author, epd):
     image = Image.new('1', (epd.height, epd.width), 255)
     draw = ImageDraw.Draw(image)
 
-    font_options = [(18, 14), (16, 12)]  # Quote font, Author font
+    font_options = [(18, 16), (16, 14)]  # Quote font, Author font
     max_width = epd.height - 20
     canvas_height = epd.width
 
     for quote_size, author_size in font_options:
         font_quote = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', quote_size)
-        font_author = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', author_size)
+        font_author = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', author_size)
 
         wrapped_quote = wrap_text(quote, font_quote, max_width)
         wrapped_author = wrap_text(f"— {author}", font_author, max_width)
@@ -133,4 +133,4 @@ if __name__ == "__main__":
             display_quote(quote, author, epd)
         except Exception as e:
             logging.error(f"Unexpected error: {e}")
-        time.sleep(900)  #delay 15 minutes per quote
+        time.sleep(600)  #delay 10 minutes per quote
