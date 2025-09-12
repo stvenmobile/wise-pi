@@ -1,184 +1,309 @@
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <Preferences.h>
 #include <TFT_eSPI.h>
-#include <XPT2046_Touchscreen.h>
 
+// ===== User Wi-Fi =====
+#define WIFI_SSID     "googlewifi"  
+#define WIFI_PASSWORD "abc123def456" 
+
+// Theme
+static const uint16_t BG_COLOR = TFT_BLACK;
+static const uint16_t FG_COLOR = TFT_WHITE;
+
+// Pins
+#ifndef TFT_BL
+  #define TFT_BL 21     // working BL pin you found
+#endif
+static const int LDR_PIN = 34;
+
+// Backlight PWM
+static const int BL_CH   = 2;
+static const int BL_BITS = 8;
+static const int BL_FREQ = 5000;
+static const uint8_t BL_MIN = 24;
+static const uint8_t BL_MAX = 255;
+
+// Quote refresh cadence
+static const uint32_t REFRESH_MS = 60 * 1000UL;
+
+// Layout / typography
+static const int PAD      = 10;   // outer padding
+static const uint8_t TXT_SIZE = 2;
+
+// ===== Globals =====
 TFT_eSPI tft;
+float bl_ema = BL_MAX;
+uint32_t lastRefresh = 0;
 
-#ifndef DEFAULT_BG
-  #define DEFAULT_BG 0x0171
-#endif
-#ifndef DEFAULT_FG
-  #define DEFAULT_FG 0xFFFF
-#endif
+// ===== Utils =====
+static inline int charW(uint8_t sz){ return 6 * sz; }     // GLCD font width per char
+static inline int lineH(uint8_t sz){ return (8 * sz) + 6; } // +6 for breathing room
 
-// ---- WiFi ----
-const char* WIFI_SSID = "YOUR_SSID";
-const char* WIFI_PASS = "YOUR_PASS";
+void dbg(const String& s){ Serial.println(s); }
 
-// ---- Touch ----
-#define TOUCH_CS   12
-#define TOUCH_IRQ  36
-XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
-
-// ---- Settings ----
-struct UiSettings {
-  uint16_t bg = DEFAULT_BG;
-  uint16_t fg = DEFAULT_FG;
-  uint8_t  font = 2;   // TFT built-ins: 2 or 4 recommended
-  uint8_t  size = 1;   // 1..3
-} ui;
-
-Preferences prefs;
-WiFiClientSecure net;
-
-const uint16_t COLOR_CHOICES[][2] = {
-  {0x0000, 0xFFFF}, // black/white
-  {0xFFFF, 0x0000}, // white/black
-  {0x0171, 0xFFFF}, // dark blue/white (default)
-  {0x7BEF, 0x0000}, // gray/black
-};
-const char* COLOR_NAMES[] = {"Blk/Wht","Wht/Blk","Blue/Wht","Gray/Blk"};
-const uint8_t  FONT_CHOICES[] = {2,4};
-const char*    FONT_NAMES[]   = {"Font2","Font4"};
-const uint8_t  SIZE_CHOICES[] = {1,2,3};
-
-void saveSettings(){
-  prefs.begin("wise-cyd", false);
-  prefs.putUShort("bg", ui.bg);
-  prefs.putUShort("fg", ui.fg);
-  prefs.putUChar("font", ui.font);
-  prefs.putUChar("size", ui.size);
-  prefs.end();
-}
-void loadSettings(){
-  prefs.begin("wise-cyd", true);
-  ui.bg   = prefs.getUShort("bg", ui.bg);
-  ui.fg   = prefs.getUShort("fg", ui.fg);
-  ui.font = prefs.getUChar("font", ui.font);
-  ui.size = prefs.getUChar("size", ui.size);
-  prefs.end();
+void setBacklight(uint8_t level) {
+  level = constrain(level, BL_MIN, BL_MAX);
+  ledcWrite(BL_CH, level);
 }
 
-void applyUi(){
-  tft.fillScreen(ui.bg);
-  tft.setTextColor(ui.fg, ui.bg);
-  tft.setTextFont(ui.font);
-  tft.setTextSize(ui.size);
-  tft.setTextDatum(TL_DATUM);
-}
+void updateBacklight() {
+  analogSetPinAttenuation(LDR_PIN, ADC_11db);
+  int raw = analogRead(LDR_PIN); // 0..4095
 
-String fetchQuote(){
-  HTTPClient http;
-  net.setInsecure(); // TODO: pin CA in prod
-  if (!http.begin(net, "https://zenquotes.io/api/random")) return "";
-  int code = http.GET();
-  if (code != HTTP_CODE_OK) { http.end(); return ""; }
-  String body = http.getString();
-  http.end();
-
-  StaticJsonDocument<1024> doc;
-  if (deserializeJson(doc, body)) return "";
-  String q = doc[0]["q"].as<String>();
-  String a = doc[0]["a"].asString();
-  return q + "\n— " + a;
-}
-
-void wrapPrint(const String& text, int x, int y, int w, int lineH){
-  int cx=x, cy=y; String word, line;
-  for (size_t i=0;i<=text.length();++i){
-    char c = (i<text.length()) ? text[i] : '\n';
-    if (c==' ' || c=='\n'){
-      String trial = line + (line.length() ? " " : "") + word;
-      if (tft.textWidth(trial) > w && line.length()){
-        tft.drawString(line, cx, cy); cy += lineH; line = word;
-      } else line = trial;
-      word = "";
-      if (c=='\n'){ tft.drawString(line,cx,cy); cy += lineH; line=""; }
-    } else word += c;
+  if (raw < 5) {                 // sensor missing/covered
+    setBacklight(200);
+    static bool once = false;
+    if (!once) { dbg("LDR looks 0 -> holding BL=200"); once = true; }
+    return;
   }
-  if (line.length()) tft.drawString(line, cx, cy);
+
+  int target = map(raw, 200, 3600, BL_MIN, BL_MAX);
+  target = constrain(target, BL_MIN, BL_MAX);
+  bl_ema = 0.85f * bl_ema + 0.15f * target;
+  setBacklight((uint8_t)bl_ema);
+
+  static uint32_t lastLog = 0;
+  if (millis() - lastLog > 2000) {
+    dbg("LDR=" + String(raw) + " BL=" + String((int)bl_ema));
+    lastLog = millis();
+  }
 }
 
-void showQuote(const String& text){
-  applyUi();
-  int margin = 12;
-  int lineH = (ui.font==4 ? 28 : 22) * ui.size;
-  wrapPrint(text, margin, margin, tft.width()-2*margin, lineH);
-}
+// ===== Word wrap (returns next Y after the last drawn line) =====
+int drawWrappedWords(const String& text, int x, int y, int w,
+                     uint8_t textSize, uint16_t fg, uint16_t bg)
+{
+  tft.setTextColor(fg, bg);
+  tft.setTextFont(1);
+  tft.setTextSize(textSize);
+  tft.setTextWrap(false);
 
-void wifiConnect(){
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis()-t0 < 15000) delay(200);
-}
+  const int maxChars = max(1, w / charW(textSize));
+  const int lh = lineH(textSize);
+  int cy = y;
 
-bool tapIn(int16_t x,int16_t y,int16_t rx,int16_t ry,int16_t rw,int16_t rh){
-  return (x>=rx && x<rx+rw && y>=ry && y<ry+rh);
-}
+  String word, line;
 
-void drawSetup(uint8_t ic,uint8_t ifo,uint8_t isz){
-  applyUi();
-  tft.drawString("Wise-CYD Setup", 10, 8);
-  tft.drawString("Color:", 10, 40); tft.drawString(COLOR_NAMES[ic], 120, 40);
-  tft.drawString("Font:",  10, 70); tft.drawString(FONT_NAMES[ifo], 120, 70);
-  tft.drawString("Size:",  10,100); tft.drawString(String(SIZE_CHOICES[isz]),120,100);
-  tft.drawString("Tap rows to cycle; long-tap Save", 10, 140);
-}
+  auto flushLine = [&](){
+    tft.setCursor(x, cy);
+    tft.print(line);
+    cy += lh;
+    line = "";
+  };
 
-void setupScreen(){
-  // map current to indices
-  uint8_t ic=2, ifo= (ui.font==4)?1:0, isz= (ui.size==3)?2:(ui.size==2)?1:0;
-  for (uint8_t i=0;i<4;i++) if (COLOR_CHOICES[i][0]==ui.bg && COLOR_CHOICES[i][1]==ui.fg) { ic=i; break; }
+  auto pushWord = [&](const String& wtok){
+    if (wtok.length() == 0) return;
 
-  drawSetup(ic,ifo,isz);
-
-  unsigned long endAt = millis()+20000; // 20s window
-  while (millis() < endAt){
-    if (ts.touched()){
-      TS_Point p = ts.getPoint(); // raw; TFT_eSPI uses rotation(1)
-      // crude map for 320x240 landscape; most CYDs have correct mapping after setRotation(1)
-      int16_t x = p.y; // swap if needed
-      int16_t y = 320 - p.x;
-
-      if (tapIn(x,y, 0,30, 320,24)) { ic=(ic+1)%4; ui.bg=COLOR_CHOICES[ic][0]; ui.fg=COLOR_CHOICES[ic][1]; drawSetup(ic,ifo,isz); }
-      else if (tapIn(x,y,0,60,320,24)) { ifo=(ifo+1)%2; ui.font=FONT_CHOICES[ifo]; drawSetup(ic,ifo,isz); }
-      else if (tapIn(x,y,0,90,320,24)) { isz=(isz+1)%3; ui.size=SIZE_CHOICES[isz]; drawSetup(ic,ifo,isz); }
-      else if (tapIn(x,y,0,130,320,30)) { saveSettings(); return; }
-      delay(200);
+    // If single word is longer than a line, hard-break it (rare)
+    if ((int)wtok.length() > maxChars) {
+      int start = 0;
+      while (start < (int)wtok.length()) {
+        int chunk = min(maxChars, (int)wtok.length() - start);
+        tft.setCursor(x, cy);
+        tft.print(wtok.substring(start, start + chunk));
+        cy += lh;
+        start += chunk;
+      }
+      return;
     }
-    delay(10);
+
+    if (line.length() == 0) {
+      line = wtok;
+    } else {
+      int needed = (int)line.length() + 1 + (int)wtok.length();
+      if (needed <= maxChars) {
+        line += ' ';
+        line += wtok;
+      } else {
+        flushLine();
+        line = wtok;
+      }
+    }
+  };
+
+  for (int i=0, n=text.length(); i<n; ++i) {
+    char c = text[i];
+    if (c == '\n') {
+      if (word.length()) { pushWord(word); word = ""; }
+      if (line.length()) flushLine();
+      continue;
+    }
+    if (c == ' ' || c == '\t' || c == '\r') {
+      pushWord(word);
+      word = "";
+    } else {
+      word += c;
+    }
   }
-  saveSettings();
+  if (word.length()) pushWord(word);
+  if (line.length()) flushLine();
+
+  return cy; // y position for the next line
 }
 
-void setup(){
-  // Backlight on
-  pinMode(TFT_BL, OUTPUT); digitalWrite(TFT_BL, HIGH);
+// ===== Networking =====
+bool fetchQuote(String& quoteOut, String& authorOut, String& errOut) {
+  errOut = "";
+  quoteOut = "";
+  authorOut = "";
 
+  if (WiFi.status() != WL_CONNECTED) {
+    errOut = "No Wi-Fi connection.";
+    return false;
+  }
+
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient https; https.setTimeout(6000);
+  const char* url = "https://zenquotes.io/api/random";
+
+  dbg(String("HTTP GET: ") + url);
+
+  if (!https.begin(client, url)) {
+    errOut = "HTTPS begin() failed.";
+    return false;
+  }
+
+  int code = https.GET();
+  dbg("HTTP status: " + String(code));
+
+  if (code == HTTP_CODE_OK) {
+    String payload = https.getString();
+    JsonDocument doc;   // ArduinoJson v7 (no deprecation warnings)
+    auto err = deserializeJson(doc, payload);
+    if (!err && doc.is<JsonArray>() && doc.size() > 0) {
+      JsonObject o = doc[0];
+      quoteOut  = o["q"].as<String>();
+      authorOut = o["a"].as<String>();
+      https.end();
+      return true;
+    } else {
+      errOut = "JSON parse error.";
+    }
+  } else {
+    errOut = "HTTP error " + String(code);
+  }
+
+  https.end();
+  return false;
+}
+
+void connectWiFi() {
+  if (String(WIFI_SSID) == "YOUR_SSID") {
+    dbg("Wi-Fi skipped: set WIFI_SSID/WIFI_PASSWORD");
+    return;
+  }
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  dbg("Wi-Fi connecting to " + String(WIFI_SSID));
+
+  uint32_t start = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < 15000) {
+    delay(200);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    dbg("Wi-Fi connected, IP=" + WiFi.localIP().toString());
+  } else {
+    dbg("Wi-Fi connect timeout");
+  }
+}
+
+// ===== Rendering =====
+void clearScreen() {
+  tft.fillScreen(BG_COLOR);
+  tft.setTextFont(1);
+  tft.setTextSize(TXT_SIZE);
+  tft.setTextColor(FG_COLOR, BG_COLOR);
+}
+
+// Draws quote and author with the requested spacing & margins
+void showQuote(const String& quote, const String& author) {
+  clearScreen();
+
+  // top blank line
+  const int topBlank = lineH(TXT_SIZE);
+
+  // enforce at least one character column blank on the right
+  const int usableW = tft.width() - PAD*2 - charW(TXT_SIZE);
+
+  const int tx = PAD;
+  int y = PAD + topBlank;
+
+  // wrap quote
+  String q = String("“") + quote + "”";
+  int nextY = drawWrappedWords(q, tx, y, usableW, TXT_SIZE, FG_COLOR, BG_COLOR);
+
+  // one blank line between quote and author
+  nextY += lineH(TXT_SIZE);
+
+  // author
+  tft.setCursor(tx, nextY);
+  tft.print("- " + author);
+}
+
+void showError(const String& msg) {
+  clearScreen();
+  const int usableW = tft.width() - PAD*2 - charW(TXT_SIZE);
+  const int tx = PAD;
+  const int y  = PAD + lineH(TXT_SIZE); // keep a blank line at the top
+  drawWrappedWords("Error: " + msg, tx, y, usableW, TXT_SIZE, FG_COLOR, BG_COLOR);
+}
+
+// ===== Arduino =====
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  dbg("\nBoot");
+
+  // Backlight first
+  pinMode(TFT_BL, OUTPUT);
+  ledcSetup(BL_CH, BL_FREQ, BL_BITS);
+  ledcAttachPin(TFT_BL, BL_CH);
+  setBacklight(BL_MAX);
+  dbg("Backlight on (PWM)");
+
+  // TFT
   tft.init();
-  tft.setRotation(1); // landscape
-  ts.begin();         // XPT2046
-  // Optional: ts.setRotation(1);  // try 1/3 if axes feel inverted
+  tft.setRotation(1);   // landscape
+  dbg("TFT init OK, w=" + String(tft.width()) + " h=" + String(tft.height()) + " rot=1");
 
-  loadSettings();
-  applyUi();
+  // Wi-Fi
+  connectWiFi();
 
-  // Hold touch at boot (or briefly tap) to enter setup
-  if (ts.touched()) setupScreen();
+  // First quote (or error)
+  String quote, author, err;
+  if (fetchQuote(quote, author, err)) {
+    showQuote(quote, author);
+  } else {
+    dbg("Fetch failed: " + err);
+    showError(err);
+  }
 
-  wifiConnect();
-  String qt = fetchQuote();
-  if (qt.isEmpty()) qt = "Network error.\n— Wise-Pi";
-  showQuote(qt);
+  lastRefresh = millis();
 }
 
-void loop(){
-  delay(30UL*60UL*1000UL); // 30 min
-  String qt = fetchQuote();
-  if (!qt.isEmpty()) showQuote(qt);
+void loop() {
+  static uint32_t lastBL = 0;
+  if (millis() - lastBL > 100) {
+    updateBacklight();
+    lastBL = millis();
+  }
+
+  if (millis() - lastRefresh > REFRESH_MS) {
+    dbg("Refreshing quote…");
+    String quote, author, err;
+    if (fetchQuote(quote, author, err)) {
+      showQuote(quote, author);
+    } else {
+      dbg("Refresh failed: " + err);
+      showError(err);
+    }
+    lastRefresh = millis();
+  }
+
+  delay(5);
 }
