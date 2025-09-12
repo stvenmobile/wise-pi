@@ -37,3 +37,4 @@ dist/
 # Backup archives
 *.zip
 *.tar.gz
+"build/, .pio/, .vscode/, .DS_Store, data/*, .pioenvs/" 
