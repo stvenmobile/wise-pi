@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Wise Display</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main id="app">
+    <div id="container">
+      <div id="quote" aria-live="polite"></div>
+      <div id="author"></div>
+    </div>
+  </main>
+  <script>
+    let theme = {
+      bg: "#000", fg: "#fff",
+      font_family: "system-ui, sans-serif",
+      quote_font_px: 56, author_font_px: 36, max_width_px: 760
+    };
+    async function loadTheme() {
+      try {
+        const r = await fetch("/api/theme");
+        if (r.ok) theme = await r.json();
+      } catch {}
+      document.documentElement.style.setProperty("--bg", theme.bg);
+      document.documentElement.style.setProperty("--fg", theme.fg);
+      document.documentElement.style.setProperty("--font", theme.font_family);
+      document.documentElement.style.setProperty("--quote-size", theme.quote_font_px + "px");
+      document.documentElement.style.setProperty("--author-size", theme.author_font_px + "px");
+      document.documentElement.style.setProperty("--maxw", theme.max_width_px + "px");
+    }
+
+    async function loadQuote() {
+      const qEl = document.getElementById("quote");
+      const aEl = document.getElementById("author");
+      try {
+        const r = await fetch("/api/quote");
+        const j = await r.json();
+        if (j.quote) {
+          qEl.textContent = "“" + j.quote + "”";
+          aEl.textContent = "— " + j.author;
+        } else {
+          qEl.textContent = "Error loading quote.";
+          aEl.textContent = "";
+        }
+        fitText(qEl, parseInt(getComputedStyle(document.documentElement).getPropertyValue("--quote-size")));
+        fitText(aEl, parseInt(getComputedStyle(document.documentElement).getPropertyValue("--author-size")));
+      } catch (e) {
+        qEl.textContent = "Network error.";
+        aEl.textContent = "";
+      }
+    }
+
+    // crude text-fit: shrink until it fits the container’s width
+    function fitText(el, basePx) {
+      el.style.fontSize = basePx + "px";
+      const maxW = document.getElementById("container").clientWidth;
+      while (el.scrollWidth > maxW && basePx > 18) {
+        basePx -= 2;
+        el.style.fontSize = basePx + "px";
+      }
+    }
+
+    async function boot() {
+      await loadTheme();
+      await loadQuote();
+      const ttl = 1000 * (parseInt(new URLSearchParams(location.search).get("refresh")) || 60);
+      setInterval(loadQuote, ttl);
+    }
+    window.addEventListener("resize", () => {
+      // re-fit on rotation/resize
+      fitText(document.getElementById("quote"),
+              parseInt(getComputedStyle(document.documentElement).getPropertyValue("--quote-size")));
+      fitText(document.getElementById("author"),
+              parseInt(getComputedStyle(document.documentElement).getPropertyValue("--author-size")));
+    });
+    boot();
+  </script>
+</body>
+</html>

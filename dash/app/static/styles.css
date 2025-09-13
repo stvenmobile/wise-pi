@@ -1,0 +1,37 @@
+:root{
+  --bg: #000;
+  --fg: #fff;
+  --font: system-ui, sans-serif;
+  --quote-size: 56px;
+  --author-size: 36px;
+  --maxw: 760px;
+}
+*{ box-sizing: border-box; }
+html, body { height: 100%; }
+body{
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+}
+#app{
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+#container{
+  width: 100%;
+  max-width: var(--maxw);
+}
+#quote{
+  font-size: var(--quote-size);
+  line-height: 1.18;
+  letter-spacing: 0.2px;
+  margin: 0 0 18px 0;
+  word-wrap: break-word;
+}
+#author{
+  font-size: var(--author-size);
+  opacity: 0.9;
+}

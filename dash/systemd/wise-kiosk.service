@@ -1,0 +1,15 @@
+[Unit]
+Description=Chromium Kiosk for Wise Dash
+After=graphical.target wise-dash.service
+Wants=wise-dash.service
+
+[Service]
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+User=pi
+ExecStart=/usr/bin/chromium-browser --kiosk --incognito --noerrdialogs \
+  --disable-translate --disable-features=TranslateUI \
+  http://localhost:8000/
+Restart=always
+
+[Install]
+WantedBy=graphical.target

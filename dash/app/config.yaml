@@ -1,0 +1,16 @@
+# how often the frontend should refresh (also backend cache TTL)
+refresh_seconds: 60
+
+theme:
+  bg: "#000000"          # background color
+  fg: "#FFFFFF"          # text color
+  font_family: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif"
+  quote_font_px: 56      # starting size; frontend clamps to fit
+  author_font_px: 36
+  max_width_px: 760      # keep text readable on 800x480
+
+fallback_quotes:
+  - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
+  - { q: "What you do is who you are.", a: "Ben Horowitz" }
+
+# Later: add weather/news keys here (and keep private bits in .env)
