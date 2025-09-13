@@ -38,3 +38,7 @@ dist/
 *.zip
 *.tar.gz
 "build/, .pio/, .vscode/, .DS_Store, data/*, .pioenvs/" 
+
+# Private credentials (ESP32 CYD)
+cyd/include/secrets.h
+

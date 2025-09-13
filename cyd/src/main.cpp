@@ -5,74 +5,125 @@
 #include <ArduinoJson.h>
 #include <TFT_eSPI.h>
 
-// ===== User Wi-Fi =====
-#define WIFI_SSID     "googlewifi"  
-#define WIFI_PASSWORD "abc123def456" 
+#include "secrets.h"
 
-// Theme
+// Safety net if someone forgot to create secrets.h
+#ifndef WIFI_SSID
+  #warning "WIFI_SSID not defined; using placeholder."
+  #define WIFI_SSID     "YOUR_SSID"
+#endif
+#ifndef WIFI_PASSWORD
+  #warning "WIFI_PASSWORD not defined; using placeholder."
+  #define WIFI_PASSWORD "YOUR_PASSWORD"
+#endif
+
+
+// ===== Theme =====
 static const uint16_t BG_COLOR = TFT_BLACK;
 static const uint16_t FG_COLOR = TFT_WHITE;
 
-// Pins
+// ===== Pins =====
 #ifndef TFT_BL
-  #define TFT_BL 21     // working BL pin you found
+  #define TFT_BL 21        // your confirmed working backlight pin
 #endif
-static const int LDR_PIN = 34;
+static const int LDR_PIN = 39;   // confirmed LDR ADC pin
 
-// Backlight PWM
+// ===== Backlight PWM =====
 static const int BL_CH   = 2;
 static const int BL_BITS = 8;
 static const int BL_FREQ = 5000;
-static const uint8_t BL_MIN = 24;
-static const uint8_t BL_MAX = 255;
+static const uint8_t BL_MIN = 24;   // floor to keep panel lit
+static const uint8_t BL_MAX = 255;  // full blast
 
-// Quote refresh cadence
+// LDR behavior toggles
+#define USE_LDR    1   // set to 0 to force fixed BL at BL_MAX
+#define LDR_INVERT 0   // if brighter room makes screen dimmer, set to 1
+
+// ===== Quote refresh cadence =====
 static const uint32_t REFRESH_MS = 60 * 1000UL;
 
-// Layout / typography
-static const int PAD      = 10;   // outer padding
-static const uint8_t TXT_SIZE = 2;
+// ===== Layout / typography =====
+static const int PAD = 10;             // outer padding
+static const uint8_t TXT_SIZE = 2;     // GLCD size 2
 
 // ===== Globals =====
 TFT_eSPI tft;
-float bl_ema = BL_MAX;
 uint32_t lastRefresh = 0;
 
 // ===== Utils =====
-static inline int charW(uint8_t sz){ return 6 * sz; }     // GLCD font width per char
-static inline int lineH(uint8_t sz){ return (8 * sz) + 6; } // +6 for breathing room
+static inline int charW(uint8_t sz){ return 6 * sz; }     // GLCD font width/char
+static inline int lineH(uint8_t sz){ return (8 * sz) + 6; } // +6 breathing room
+static inline void dbg(const String& s){ Serial.println(s); }
 
-void dbg(const String& s){ Serial.println(s); }
-
-void setBacklight(uint8_t level) {
+static void setBacklight(uint8_t level) {
   level = constrain(level, BL_MIN, BL_MAX);
   ledcWrite(BL_CH, level);
 }
 
+// ===== Self-calibrating backlight from LDR =====
 void updateBacklight() {
-  analogSetPinAttenuation(LDR_PIN, ADC_11db);
-  int raw = analogRead(LDR_PIN); // 0..4095
+#if USE_LDR
+  static float bl_ema = BL_MAX;
+  static uint16_t ldr_min = 4095, ldr_max = 0;
+  static uint32_t lastLog = 0;
+  static uint8_t  bad_streak = 0;
+  static bool     ldr_ok = true;
 
-  if (raw < 5) {                 // sensor missing/covered
+  analogSetPinAttenuation(LDR_PIN, ADC_11db);
+  int raw = analogRead(LDR_PIN);   // 0..4095
+
+  // Persistently railed values -> treat sensor as bad
+  bool extreme = (raw <= 5 || raw >= 4090);
+  bad_streak = extreme ? (uint8_t)min<int>(255, bad_streak + 1) : 0;
+  if (bad_streak > 20) ldr_ok = false;
+
+  // Learn working range with gentle decay so old extremes fade
+  if (!extreme) {
+    ldr_min = min<uint16_t>(ldr_min, (uint16_t)raw);
+    ldr_max = max<uint16_t>(ldr_max, (uint16_t)raw);
+    // decay toward current sample
+    ldr_min = (uint16_t)((ldr_min * 9 + raw) / 10);
+    ldr_max = (uint16_t)((ldr_max * 9 + raw) / 10);
+  }
+
+  // Seed sensible defaults until we learn a span
+  uint16_t lo = (ldr_min == 4095 ? 20  : ldr_min);
+  uint16_t hi = (ldr_max == 0    ? 200 : ldr_max);
+  if (hi - lo < 40) { lo = max<int>(lo - 10, 0); hi = lo + 40; }
+
+  if (!ldr_ok) {
     setBacklight(200);
-    static bool once = false;
-    if (!once) { dbg("LDR looks 0 -> holding BL=200"); once = true; }
+    if (millis() - lastLog > 2000) {
+      dbg("LDR invalid -> fixed BL=200 (raw=" + String(raw) + ")");
+      lastLog = millis();
+    }
     return;
   }
 
-  int target = map(raw, 200, 3600, BL_MIN, BL_MAX);
-  target = constrain(target, BL_MIN, BL_MAX);
+  // Normalize raw to 0..1 within learned span
+  float norm = (float)(raw - lo) / (float)(hi - lo);
+  norm = constrain(norm, 0.0f, 1.0f);
+
+  // Map to BL range (invert if wiring polarity demands it)
+  int target = LDR_INVERT
+               ? (int)(BL_MIN + (1.0f - norm) * (BL_MAX - BL_MIN))
+               : (int)(BL_MIN + norm * (BL_MAX - BL_MIN));
+
+  // Smooth and apply
   bl_ema = 0.85f * bl_ema + 0.15f * target;
   setBacklight((uint8_t)bl_ema);
 
-  static uint32_t lastLog = 0;
   if (millis() - lastLog > 2000) {
-    dbg("LDR=" + String(raw) + " BL=" + String((int)bl_ema));
+    dbg("LDR=" + String(raw) +
+        " map[" + String(lo) + ".." + String(hi) + "] -> BL=" + String((int)bl_ema));
     lastLog = millis();
   }
+#else
+  setBacklight(BL_MAX);
+#endif
 }
 
-// ===== Word wrap (returns next Y after the last drawn line) =====
+// ===== Word wrap: returns next Y after the last drawn line =====
 int drawWrappedWords(const String& text, int x, int y, int w,
                      uint8_t textSize, uint16_t fg, uint16_t bg)
 {
@@ -97,7 +148,7 @@ int drawWrappedWords(const String& text, int x, int y, int w,
   auto pushWord = [&](const String& wtok){
     if (wtok.length() == 0) return;
 
-    // If single word is longer than a line, hard-break it (rare)
+    // If single word is longer than a line, hard-break (rare)
     if ((int)wtok.length() > maxChars) {
       int start = 0;
       while (start < (int)wtok.length()) {
@@ -141,7 +192,7 @@ int drawWrappedWords(const String& text, int x, int y, int w,
   if (word.length()) pushWord(word);
   if (line.length()) flushLine();
 
-  return cy; // y position for the next line
+  return cy;
 }
 
 // ===== Networking =====
@@ -171,7 +222,7 @@ bool fetchQuote(String& quoteOut, String& authorOut, String& errOut) {
 
   if (code == HTTP_CODE_OK) {
     String payload = https.getString();
-    JsonDocument doc;   // ArduinoJson v7 (no deprecation warnings)
+    JsonDocument doc;   // ArduinoJson v7
     auto err = deserializeJson(doc, payload);
     if (!err && doc.is<JsonArray>() && doc.size() > 0) {
       JsonObject o = doc[0];
@@ -220,7 +271,6 @@ void clearScreen() {
   tft.setTextColor(FG_COLOR, BG_COLOR);
 }
 
-// Draws quote and author with the requested spacing & margins
 void showQuote(const String& quote, const String& author) {
   clearScreen();
 
