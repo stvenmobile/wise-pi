@@ -6,8 +6,25 @@ Perfect for your desk, nightstand, bookshelf, or as a gift.
 <img src="images/20250422_161946.jpg" alt="Wise-Pi" width="600"/>
 
 ---
+> **Branches at a glance**
 
-## 📷 Overview
+| Branch            | Target hardware                                    | What it contains                                                                 | Where to look |
+|-------------------|----------------------------------------------------|----------------------------------------------------------------------------------|---------------|
+| **main**          | Raspberry Pi Zero 2 W + Waveshare 2.7" e-paper     | Original Python app (`quote_display.py`) and systemd service; e-paper enclosure | root, `stl_files/`, `images/` |
+| **cyd-esp32-2_8** | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
+| **pi-dash-7in**   | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
+
+The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. :contentReference[oaicite:0]{index=0}
+
+**Switching between branches**
+```bash
+git fetch --all --prune
+git switch main            # e-paper build
+git switch cyd-esp32-2_8   # ESP32 CYD build
+git switch pi-dash-7in     # 7" dashboard build
+
+
+## 📷 Wise-Pi Overview
 
 Wise-Pi is a self-contained quote display that fetches and displays inspirational quotes from the internet 
 using Wi-Fi. The frequency of new quote retrieval is configurable. No keyboard, mouse, or screen is needed — just 
