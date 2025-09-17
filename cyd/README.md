@@ -1,3 +1,8 @@
+<p float="left">
+  <img src="images/cyd_front2.jpg" width="48%" alt="Front">
+  <img src="images/cyd_back.jpg"  width="48%" alt="Back">
+</p>
+
 # CYD ESP32 2.8" (ILI9341) — Minimal Quote Display
 
 A bare-bones ESP32 + 2.8" TFT (CYD) build that shows rotating quotes.  
