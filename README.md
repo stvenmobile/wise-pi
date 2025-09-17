@@ -32,11 +32,12 @@ A minimalist Raspberry Pi project that displays rotating quotes on a small displ
 ---
 > **Branches at a glance**
 
-| Branch            | Target hardware                                    | What it contains                                                                 | Where to look |
-|-------------------|----------------------------------------------------|----------------------------------------------------------------------------------|---------------|
-| **main**          | Raspberry Pi Zero 2 W + Waveshare 2.7" e-paper     | Original Python app (`quote_display.py`) and systemd service; e-paper enclosure | root, `stl_files/`, `images/` |
-| **cyd-esp32-2_8** | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
-| **pi-dash-7in**   | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
+| Branch&nbsp;&nbsp;&nbsp;&nbsp; | Target hardware                                    | What it contains                                                                 | Where to look |
+|--------------------------------|----------------------------------------------------|----------------------------------------------------------------------------------|---------------|
+| **main**                       | Raspberry Pi Zero 2 W + Waveshare 2.7" e-paper     | Original Python app (`quote_display.py`) and systemd service; e-paper enclosure | root, `stl_files/`, `images/` |
+| **cyd-esp32-2_8**              | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
+| **pi-dash-7in**                | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
+
 
 The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. 
 
