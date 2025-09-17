@@ -42,13 +42,6 @@ A minimalist Raspberry Pi project that displays rotating quotes on a small displ
 
 The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. 
 
-**Switching between branches**
-```bash
-git fetch --all --prune
-git switch main            # e-paper build
-git switch cyd-esp32-2_8   # ESP32 CYD build
-git switch pi-dash-7in     # 7" dashboard build
-
 
 ## 📷 Wise-Pi Overview
 
