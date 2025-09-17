@@ -1,3 +1,8 @@
+![Pi Dash front](images/dash-front2.jpg)
+![Pi Dash back](images/dash-back.jpg)
+
+
+
 # Wise-Pi Dash (7" DSI) — Setup Guide
 
 A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi with a **7" DSI display**, running in **Chromium kiosk mode** at boot. Designed to be simple now (quotes), but flexible for future tiles (weather, headlines, calendar, etc.).
