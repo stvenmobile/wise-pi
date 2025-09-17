@@ -1,6 +1,6 @@
 <p float="left">
-  <img src="images/cyd_front2.jpg" width="48%" alt="Front">
-  <img src="images/cyd_back.jpg"  width="48%" alt="Back">
+  <img src="cyd/images/cyd_front2.jpg" width="48%" alt="Front">
+  <img src="cyd/images/cyd_back.jpg"  width="48%" alt="Back">
 </p>
 
 # CYD ESP32 2.8" (ILI9341) — Minimal Quote Display
