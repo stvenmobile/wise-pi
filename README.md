@@ -121,6 +121,11 @@ Files:
 <img src="images/front_view.jpg" alt="Front view." width="400"/>
 <img src="images/side_view.jpg" alt="Side view." width="400"/>
 
+<p float="left">
+  <img src="images/wise-pi_front.jpg" width="48%" alt="Front">
+  <img src="images/wise-pi_back.jpg"  width="48%" alt="Back">
+</p>
+
 
 ---
 
