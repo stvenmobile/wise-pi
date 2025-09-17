@@ -1,26 +1,33 @@
 # Wise-Pi
 
-A minimalist Raspberry Pi Zero project that displays rotating quotes on a Waveshare 2.7" e-paper display.
-Perfect for your desk, nightstand, bookshelf, or as a gift.
+A minimalist Raspberry Pi project that displays rotating quotes on a small display. Perfect for your desk, nightstand, bookshelf, or as a gift. There are three different variants of the project:
 
-Wise-PI ePaper Display
+---
+
+## Wise-Pi ePaper Display
+
 <p float="left">
   <img src="images/wise-pi_front.jpg" width="48%" alt="Front">
   <img src="images/wise-pi_side.jpg"  width="48%" alt="Side">
 </p>
 
-Wise-Pi CYD Version  (Cheap Yellow Display)
+---
+
+## Wise-Pi CYD Version (Cheap Yellow Display)
+
 <p float="left">
   <img src="images/cyd_front2.jpg" width="48%" alt="Front">
   <img src="images/cyd_back.jpg"  width="48%" alt="Back">
 </p>
 
-Wise-Pi DASH Version  (7in DSI Display)
+---
+
+## Wise-Pi DASH Version (7″ DSI Display)
+
 <p float="left">
   <img src="images/dash_front2.jpg" width="48%" alt="Front">
   <img src="images/dash_back.jpg"  width="48%" alt="Back">
 </p>
-
 
 ---
 > **Branches at a glance**
@@ -31,7 +38,7 @@ Wise-Pi DASH Version  (7in DSI Display)
 | **cyd-esp32-2_8** | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
 | **pi-dash-7in**   | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
 
-The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. :contentReference[oaicite:0]{index=0}
+The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. 
 
 **Switching between branches**
 ```bash
