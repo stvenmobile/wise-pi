@@ -62,7 +62,7 @@ interruptions.
 ## 🛠️ Hardware Requirements
 
 - Raspberry Pi Zero 2 W
-- Waveshare 2.7" e-Paper HAT (264x176)
+- Waveshare 2.7 e-Paper HAT (264x176)
 - microSD card (8GB or larger)
 - USB power supply (e.g. phone charger)
 
