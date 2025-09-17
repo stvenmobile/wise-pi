@@ -1,5 +1,5 @@
-![Pi Dash front](images/dash-front2.jpg)
-![Pi Dash back](images/dash-back.jpg)
+![Pi Dash front](images/dash_front2.jpg)
+![Pi Dash back](images/dash_back.jpg)
 
 
 
