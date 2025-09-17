@@ -34,9 +34,9 @@ A minimalist Raspberry Pi project that displays rotating quotes on a small displ
 
 | <nobr>GitHub Branch</nobr> | Target hardware                                    | What it contains                                                                 | Where to look |
 |-------------------|------------------------------------------------|-----------------------------------------------------------------------|---------------|
-| **<nobr>main</nobr>**                       | Raspberry Pi Zero 2 W + Waveshare 2.7" e-paper     | Original Python app (`quote_display.py`) and systemd service; e-paper enclosure | root, `stl_files/`, `images/` |
-| **<nobr>cyd-esp32-2_8</nobr>**               | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
-| **<nobr>pi-dash-7in</nobr>**                | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
+| **main**                       | Raspberry Pi Zero 2 W + Waveshare 2.7" e-paper     | Original Python app (`quote_display.py`) and systemd service; e-paper enclosure | root, `stl_files/`, `images/` |
+| **cyd-esp32-2_8**               | ESP32 Dev + 2.8" CYD (ILI9341) TFT                 | Arduino/PlatformIO sketch using **TFT_eSPI**, auto-brightness via LDR, secrets  | `cyd/`, `cyd/include/secrets.example.h` |
+| **pi-dash-7in**                | Raspberry Pi 4 + 7" DSI (or HDMI) display (no touch) | FastAPI backend + static HTML/JS frontend; Chromium kiosk + systemd units        | `dash/app`, `dash/systemd` |
 
 
 The default branch focuses on the Pi Zero + 2.7" e-paper build and desk-friendly case STLs. 
