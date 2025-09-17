@@ -3,23 +3,22 @@
 A minimalist Raspberry Pi Zero project that displays rotating quotes on a Waveshare 2.7" e-paper display.
 Perfect for your desk, nightstand, bookshelf, or as a gift.
 
+Wise-PI ePaper Display
 <p float="left">
   <img src="images/wise-pi_front.jpg" width="48%" alt="Front">
   <img src="images/wise-pi_side.jpg"  width="48%" alt="Side">
 </p>
-Wise-PI ePaper
 
+Wise-Pi CYD Version  (Cheap Yellow Display)
 <p float="left">
   <img src="images/cyd_front2.jpg" width="48%" alt="Front">
   <img src="images/cyd_back.jpg"  width="48%" alt="Back">
+</p>
 
-  Wise-Pi CYD Version  (Cheap Yellow Display)
-
- <p float="left">
+Wise-Pi DASH Version  (7in DSI Display)
+<p float="left">
   <img src="images/dash_front2.jpg" width="48%" alt="Front">
   <img src="images/dash_back.jpg"  width="48%" alt="Back">
-
-  Wise-Pi DASH Version  (7in DSI Display) 
 </p>
 
 
