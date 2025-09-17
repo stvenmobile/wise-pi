@@ -3,7 +3,10 @@
 A minimalist Raspberry Pi Zero project that displays rotating quotes on a Waveshare 2.7" e-paper display.
 Perfect for your desk, nightstand, bookshelf, or as a gift.
 
-<img src="images/20250422_161946.jpg" alt="Wise-Pi" width="600"/>
+<p float="left">
+  <img src="images/wise-pi_front.jpg" width="48%" alt="Front">
+  <img src="images/wise-pi_back.jpg"  width="48%" alt="Back">
+</p>
 
 ---
 > **Branches at a glance**
