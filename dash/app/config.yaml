@@ -5,12 +5,20 @@ theme:
   bg: "#000000"          # background color
   fg: "#FFFFFF"          # text color
   font_family: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif"
-  quote_font_px: 56      # starting size; frontend clamps to fit
-  author_font_px: 36
-  max_width_px: 760      # keep text readable on 800x480
+  quote_font_px: 48      # starting size; frontend clamps to fit
+  author_font_px: 30
+  max_width_px: 720      # keep text readable on 800x480
 
 fallback_quotes:
   - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
+
+weather:
+  api_key: "f57c5adadc5bc6572473e012b9539fae"
+  lat: 35.2216 # Example: NYC Latitude
+  lon: -80.8401 # Example: NYC Longitude
+  display_duration_seconds: 20
+  quote_interval: 5 # Show weather after every 5 quotes
+
 
 # Later: add weather/news keys here (and keep private bits in .env)
