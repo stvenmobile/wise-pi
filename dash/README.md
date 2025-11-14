@@ -8,7 +8,7 @@
 
 # Wise-Pi Dash (7" DSI) — Setup Guide
 
-A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi with a **7" DSI display**, running in **Chromium kiosk mode** at boot. The applicaiton has been uypdated to provide a sequence of displays. First it shows a five-day weather forecast, then it displays a quote, and that is followed by display of an artwork from the Metropolitan Museum of Art (with a Title and Artist line below it). The length of time each content type is dpsplayed is configurable, as well as which of the three type to include in the rotastion.
+A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi with a **7" DSI display**, running in **Chromium kiosk mode** at boot. The applicaiton has been uypdated to provide a sequence of displays. First it shows a five-day weather forecast, then it displays a quote, and that is followed by display of an artwork from the Metropolitan Museum of Art (with a Title and Artist line below it). The length of time each content type remains visible is configurable, as well as which of the three content types to include in the rotastion.
 
 ---
 
@@ -229,3 +229,4 @@ Chromium for kiosk
 
 
 zenquotes.io for quotes (no key required)
+
