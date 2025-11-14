@@ -14,11 +14,15 @@ fallback_quotes:
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
 
 weather:
-  api_key: "f57c5adadc5bc6572473e012b9539fae"
-  lat: 35.2216 # Example: NYC Latitude
-  lon: -80.8401 # Example: NYC Longitude
+  # The API key is now loaded from the OPENWEATHER_API_KEY environment variable.
+  lat: 35.2216 
+  lon: -80.8401 
   display_duration_seconds: 20
-  quote_interval: 5 # Show weather after every 5 quotes
+  quote_interval: 5
 
-
-# Later: add weather/news keys here (and keep private bits in .env)
+rotation:
+  sequence: ["weather", "quote", "art"]
+  durations_seconds:
+    weather: 30
+    quote: 60
+    art: 60

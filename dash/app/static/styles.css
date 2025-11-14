@@ -1,42 +1,151 @@
-:root{
-  --bg: #000;
-  --fg: #fff;
-  --font: system-ui, sans-serif;
-  --quote-size: 18px;
-  --author-size: 10px;
-  --maxw: 760px;
-}
-*{ box-sizing: border-box; }
-html, body { height: 100%; }
-body{
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font);
-}
-#app{
-  height: 100%;
-  display: grid;
-  place-items: center;
-  /* a bit more padding all around */
-  padding: 24px;
+/* --- 1. Global & Root Styles (Sets up theme variables) --- */
+:root {
+    --bg: #000000;
+    --fg: #FFFFFF;
+    --font: sans-serif;
+    --quote-size: 48px;
+    --author-size: 30px;
+    --maxw: 720px;
 }
 
-#container{
-  width: 100%;
-  max-width: var(--maxw);
+html, body, #app {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; 
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* add ~two line-heights of space (visually a “second blank line”) */
-#quote{
-  font-size: var(--quote-size);
-  line-height: 1.18;
-  letter-spacing: 0.2px;
-  margin: 0 0 calc(var(--quote-size) * 1.2) 0;
-  word-wrap: break-word;
+/* --- 2. Main Container Layout --- */
+#container {
+    display: flex;
+    flex-direction: column; 
+    align-items: center;
+    width: 90%;
+    max-width: var(--maxw);
+    min-height: 50vh; 
+    justify-content: center; 
 }
 
-#author{
-  font-size: var(--author-size);
-  opacity: 0.9;
+/* --- 3. Quote Mode Styling (Base styles for text) --- */
+
+/* Wrapper for quote and author - handles centering */
+#quote-display {
+    display: none; /* Hidden by default; JS controls visibility */
+    flex-direction: column; 
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    min-height: 60vh; 
+}
+
+/* Base style for the quote text (Crash Prevention) */
+#quote {
+    width: 100%;
+    text-align: center;
+    font-size: var(--quote-size);
+    margin: 10px 0;
+    
+    /* --- CRASH PREVENTION RULES --- */
+    word-wrap: break-word; 
+    overflow-wrap: break-word;
+    white-space: normal; 
+}
+
+#author {
+    width: 100%;
+    text-align: center;
+    font-size: var(--author-size);
+    font-weight: 400;
+    margin-top: 20px;
+}
+
+/* --- 4. Weather Mode Styling --- */
+
+/* We use the JS to set display:none for #quote-display, so this block removes the old, redundant rule: */
+/* #quote, #author { display: none; } <-- Removed redundancy */
+
+
+/* Current Day Display (Top Half - Icon, Temp, Condition) */
+#current-display {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+/* CRITICAL: Styles the Icon and Temp line horizontally */
+#main-temp-line {
+    display: flex; 
+    flex-direction: row; 
+    align-items: center; 
+    margin-bottom: 5px;
+}
+
+#main-icon-container {
+    margin-right: 15px; 
+}
+
+.main-weather-icon {
+    width: 120px;
+    height: 120px;
+}
+
+#main-text {
+    font-size: 100px; 
+    line-height: 1; 
+    margin: 0; 
+    padding-top: 5px; 
+}
+
+#sub-text {
+    font-size: 30px; 
+    font-weight: 300;
+}
+
+/* Forecast Grid Layout (Bottom Half - 5-Day Horizontal) */
+#forecast-grid {
+    display: flex; 
+    flex-direction: row; 
+    justify-content: space-around; 
+    align-items: flex-start; 
+    
+    width: 95%; 
+    border-top: 1px solid var(--fg); 
+    padding-top: 20px;
+    margin-top: 10px;
+}
+
+.forecast-item {
+    display: flex;
+    flex-direction: column; 
+    align-items: center;
+    width: 18%; 
+    text-align: center;
+    padding: 10px 0;
+}
+
+.weather-icon {
+    width: 70px;  
+    height: 70px;
+}
+
+.forecast-day {
+    font-size: 18px; 
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.forecast-temp {
+    font-size: 24px; 
+    font-weight: lighter;
+    margin-top: 5px;
 }
