@@ -8,8 +8,7 @@
 
 # Wise-Pi Dash (7" DSI) — Setup Guide
 
-A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi with a **7" DSI display**, running in **Chromium kiosk mode** at boot. Designed to be simple now (quotes), but flexible for future tiles (weather, headlines, calendar, etc.).
-
+A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi with a 7" DSI display, running in Chromium kiosk mode at boot. The application has been uypdated to provide a sequence of displays. First it shows a five-day weather forecast, then it displays a quote, and that is followed by display of an artwork from the Metropolitan Museum of Art (with a Title and Artist line below it). The length of time each content type remains visible is configurable, as well as which of the three content types to include in the rotation.
 ---
 
 ## What you’ll need
@@ -35,8 +34,6 @@ wise-kiosk.service # optional user-service example
 STL Files/
 Brackets.stl # optional desk brackets
 
-yaml
-Copy code
 
 ---
 
@@ -70,11 +67,26 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-config.yaml — theme/intervals (defaults are fine)
-
+config.yaml — Theme/intervals, **Rotation Sequence, and Display Durations** (These control the timing of Weather, Quote, and Art).
 env.example — copy to .env later if you add API keys
 
-4) Quick manual test (optional)
+## 4) API Key Setup (OpenWeatherMap)
+
+The weather and potentially other API calls require secret keys. We secure these using environment variables.
+
+1.  **Get Key:** Obtain an API key from OpenWeatherMap (or similar).
+2.  **Edit Service File:** Add the key directly to your `wise-pi-dash.service` file (created in Step 5), **before** the `ExecStart` line, using the `Environment` directive.
+
+```ini
+[Service]
+...
+Environment="PATH=/home/%i/wise-pi/dash/app/.venv/bin"
+# --- ADD YOUR API KEY HERE ---
+Environment="OPENWEATHER_API_KEY=YOUR_SECRET_API_KEY_HERE" 
+ExecStart=/home/%i/wise-pi/dash/app/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
+...
+
+5) Quick manual test (optional)
 bash
 Copy code
 cd ~/wise-pi/dash/app
@@ -201,6 +213,8 @@ bash
 Copy code
 ping -c 2 8.8.8.8
 ping -c 2 zenquotes.io
+# NOTE: The application now automatically retries external API calls up to 3 times to mitigate transient DNS or network issues (e.g., 'Temporary failure in name resolution').
+
 3D-printed desk brackets (optional)
 File: dash/STL Files/Brackets.stl
 
