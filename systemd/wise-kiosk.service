@@ -1,7 +1,7 @@
 [Unit]
-Description=Chromium Kiosk for Wise Dash
-After=graphical.target wise.service
-Wants=wise.service
+Description=Chromium Kiosk for Wise-Pi
+After=graphical.target wise-pi.service
+Wants=wise-pi.service
 
 [Service]
 Environment=XDG_RUNTIME_DIR=/run/user/1000

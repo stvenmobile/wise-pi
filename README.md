@@ -14,9 +14,9 @@ A lightweight FastAPI web app that shows a large, readable quote on a Raspberry 
 
 ## What you’ll need
 
-- **Raspberry Pi** (RPI 4 or RPI 5 recommended; Zero 2 W will work but is slower)
+- **Raspberry Pi** (RPI 4 or RPI 5 recommended; RPI 3 or RPI Zero 2 W will work but slower)
 - *HDMI Display** (such as a PC Monitor)
-- **Raspberry Pi OS (Bookworm) with Desktop** (32-bit is fine)
+- **Raspberry Pi OS (Bookworm) 64-bit with Desktop** (Recommended for Pi 4/5)
 - Network access (Wi-Fi or Ethernet)
 
 **Repo layout (branch `rpi4-hdmi`):**
@@ -57,7 +57,7 @@ cd ~
 git clone https://github.com/<stvenmobile>/wise-pi.git
 cd wise-pi
 git fetch --all --prune
-git switch -c pi-7in origin/pi-7in
+git switch -c rpi4-hdmi
 ```
 ### 3) Python venv & dependencies
 ```bash
@@ -81,36 +81,34 @@ From another device: http://<pi-ip>:8000
 Stop with Ctrl+C.
 
 ### 5) Install the API as a systemd service
-Create and enable a service so the API starts at boot.
-
+# CRITICAL: BEFORE RUNNING, replace ALL occurrences of the username 'steve'
+# in the block below with YOUR actual Raspberry Pi username (e.g., 'pi').
 ```bash
-Copy code
 sudo tee /etc/systemd/system/wise-pi.service >/dev/null <<'EOF'
 [Unit]
-Description=Wise Pi Dash (FastAPI + Uvicorn)
+Description=Wise Pi Service (FastAPI + Uvicorn)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=%i
-WorkingDirectory=/home/%i/wise-pi/app
-Environment="PATH=/home/%i/wise-pi/app/.venv/bin"
-ExecStart=/home/%i/wise-pi/app/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
+User=steve        # <-- REPLACE 'steve' with your account ID, next 3 lines
+WorkingDirectory=/home/steve/wise-pi/app
+Environment="PATH=/home/steve/wise-pi/app/.venv/bin"
+ExecStart=/home/steve/wise-pi/app/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
-```
 
-Replace %i with your actual username in the file, then:
-```bash
+# Enable and start the service (using the replaced username)
 sudo systemctl daemon-reload
 sudo systemctl enable wise-pi.service
 sudo systemctl start  wise-pi.service
 ```
+
 Verify:
 ```bash
 systemctl status wise-pi --no-pager
@@ -120,11 +118,10 @@ Tip (local-only): If you don’t want LAN devices to access the API, bind to loo
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
 ### 6) Autostart Chromium in kiosk
-Use a desktop autostart entry to open Chromium fullscreen to the local app:
-
+# The kiosk service MUST run under your user account for GUI access.
 ```bash
-mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/wisepi-kiosk.desktop <<'EOF'
+mkdir -p /home/steve/.config/autostart # <-- REPLACE 'steve'
+cat > /home/steve/.config/autostart/wisepi-kiosk.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=WisePi Kiosk
@@ -133,13 +130,16 @@ Exec=/bin/sh -lc 'sleep 5; B=$(command -v chromium || command -v chromium-browse
 X-GNOME-Autostart-enabled=true
 EOF
 ```
-If you installed unclutter and want to hide the cursor, add this to your session autostart (e.g., ~/.config/lxsession/LXDE-pi/autostart):
 
-css
+# Instructions for hiding cursor
+If you installed unclutter and want to hide the cursor, add this to your session autostart 
+(e.g., ~/.config/lxsession/LXDE-pi/autostart):
+
 ```bash
 @unclutter -idle 1 -root
 ```
-Reboot to confirm kiosk mode.
+
+# Reboot to confirm kiosk mode.
 
 ### 7) Update / maintenance
 Pull code updates and restart the service if needed:
@@ -147,7 +147,7 @@ Pull code updates and restart the service if needed:
 ```bash
 cd ~/wise-pi
 git fetch --all --prune
-git switch pi-7in
+git switch rpi4-hdmi
 git pull --ff-only
 
 cd ~/wise-pi/app

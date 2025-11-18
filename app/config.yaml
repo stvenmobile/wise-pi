@@ -5,9 +5,9 @@ theme:
   bg: "#000000"          # background color
   fg: "#FFFFFF"          # text color
   font_family: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif"
-  quote_font_px: 48      # starting size; frontend clamps to fit
-  author_font_px: 30
-  max_width_px: 720      # keep text readable on 800x480
+  quote_font_px: 72      # starting size; frontend clamps to fit
+  author_font_px: 48
+  max_width_px: 1500      # keep text readable on 800x480
 
 fallback_quotes:
   - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
