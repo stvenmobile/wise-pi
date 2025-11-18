@@ -14,7 +14,7 @@ A lightweight FastAPI web app that shows a large, readable quote on a Raspberry 
 
 ## What you’ll need
 
-- **Raspberry Pi 4** (recommended; Zero 2 W will work but is slower)
+- **Raspberry Pi** (RPI 4 or RPI 5 recommended; Zero 2 W will work but is slower)
 - *HDMI Display** (such as a PC Monitor)
 - **Raspberry Pi OS (Bookworm) with Desktop** (32-bit is fine)
 - Network access (Wi-Fi or Ethernet)
@@ -29,7 +29,8 @@ static/
 index.html
 styles.css
 systemd/
-wise-kiosk.service # optional user-service example
+wise-pi.service 
+wise-kiosk.service
 
 ---
 
@@ -53,7 +54,7 @@ sudo apt install -y unclutter
 ### 2) Get the code
 ```bash
 cd ~
-git clone https://github.com/<YOUR_GH_USER>/wise-pi.git
+git clone https://github.com/<stvenmobile>/wise-pi.git
 cd wise-pi
 git fetch --all --prune
 git switch -c pi-7in origin/pi-7in
