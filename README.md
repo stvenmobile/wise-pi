@@ -35,7 +35,6 @@ wise-kiosk.service
 ---
 
 ### 1) OS prep
-
 Update the OS and reboot:
 ```bash
 sudo apt update && sudo apt full-upgrade -y
@@ -44,7 +43,6 @@ sudo reboot
 Install packages:
 
 ```bash
-Copy code
 sudo apt install -y git python3-venv chromium-browser curl
 # Some images use `chromium` instead of `chromium-browser`; we handle both later.
 # Optional: hide the mouse in kiosk
@@ -57,7 +55,7 @@ cd ~
 git clone https://github.com/<stvenmobile>/wise-pi.git
 cd wise-pi
 git fetch --all --prune
-git switch -c rpi4-hdmi
+git switch -c rpi4-hdmi origin/rpi4-hdmi
 ```
 ### 3) Python venv & dependencies
 ```bash

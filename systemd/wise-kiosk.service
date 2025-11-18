@@ -5,7 +5,8 @@ Wants=wise-pi.service
 
 [Service]
 Environment=XDG_RUNTIME_DIR=/run/user/1000
-User=pi
+User=steve
+Group=steve
 ExecStart=/usr/bin/chromium-browser --kiosk --incognito --noerrdialogs \
   --disable-translate --disable-features=TranslateUI \
   http://localhost:8000/
