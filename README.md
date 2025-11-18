@@ -78,38 +78,26 @@ On the Pi: open Chromium to http://localhost:8000
 From another device: http://<pi-ip>:8000
 Stop with Ctrl+C.
 
-### 5) Install the API as a systemd service
-# CRITICAL: BEFORE RUNNING, replace ALL occurrences of the username 'steve'
-# in the block below with YOUR actual Raspberry Pi username (e.g., 'pi').
+### 5) Install and Enable Systemd Services
+
+The service files in the `systemd/` directory are complete but use the placeholder username 'steve'. We will copy them to the system location after fixing the username.
+
+**CRITICAL: Use a text editor (like nano) to globally replace ALL occurrences of 'steve' in the following two files with YOUR actual Raspberry Pi username (e.g., 'pi'):**
+
+* `~/wise-pi/systemd/wise-pi.service`
+* `~/wise-pi/systemd/wise-kiosk.service`
+
+**A. Copy Service Files:**
 ```bash
-sudo tee /etc/systemd/system/wise-pi.service >/dev/null <<'EOF'
-[Unit]
-Description=Wise Pi Service (FastAPI + Uvicorn)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=steve        # <-- REPLACE 'steve' with your account ID, next 3 lines
-WorkingDirectory=/home/steve/wise-pi/app
-Environment="PATH=/home/steve/wise-pi/app/.venv/bin"
-ExecStart=/home/steve/wise-pi/app/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Copy the corrected service files to the system directory
+sudo cp ~/wise-pi/systemd/wise-pi.service /etc/systemd/system/
+sudo cp ~/wise-pi/systemd/wise-kiosk.service /etc/systemd/system/
 
 # Enable and start the service (using the replaced username)
 sudo systemctl daemon-reload
 sudo systemctl enable wise-pi.service
 sudo systemctl start  wise-pi.service
-```
-
-Verify:
-```bash
-systemctl status wise-pi --no-pager
+systemctl status wise-pi --no-pager                                # status should be active
 curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 ```
 Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
