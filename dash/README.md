@@ -20,6 +20,7 @@ A lightweight FastAPI web app that shows a large, readable quote on a Raspberry 
 - Network access (Wi-Fi or Ethernet)
 
 **Repo layout (branch `rpi4-hdmi`):**
+dash/
 app/
 main.py
 requirements.txt
@@ -29,11 +30,17 @@ static/
 index.html
 styles.css
 systemd/
+wise.service # example unit: names can differ
 wise-kiosk.service # optional user-service example
+STL Files/
+Brackets.stl # optional desk brackets
+
+yaml
+Copy code
 
 ---
 
-### 1) OS prep
+#### 1) OS prep
 
 Update the OS and reboot:
 ```bash
@@ -50,7 +57,7 @@ sudo apt install -y git python3-venv chromium-browser curl
 sudo apt install -y unclutter
 ```
 ---
-### 2) Get the code
+#### 2) Get the code
 ```bash
 cd ~
 git clone https://github.com/<YOUR_GH_USER>/wise-pi.git
@@ -58,7 +65,7 @@ cd wise-pi
 git fetch --all --prune
 git switch -c pi-7in origin/pi-7in
 ```
-### 3) Python venv & dependencies
+#### 3) Python venv & dependencies
 ```bash
 cd ~/wise-pi/app
 python3 -m venv .venv
@@ -69,7 +76,7 @@ config.yaml — theme/intervals (defaults are fine)
 
 env.example — copy to .env later if you add API keys
 ```
-### 4) Quick manual test (optional)
+#### 4) Quick manual test (optional)
 ```bash
 cd ~/wise-pi/app
 . .venv/bin/activate
@@ -79,7 +86,7 @@ On the Pi: open Chromium to http://localhost:8000
 From another device: http://<pi-ip>:8000
 Stop with Ctrl+C.
 
-### 5) Install the API as a systemd service
+#### 5) Install the API as a systemd service
 Create and enable a service so the API starts at boot.
 
 ```bash
@@ -118,7 +125,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
-### 6) Autostart Chromium in kiosk
+#### 6) Autostart Chromium in kiosk
 Use a desktop autostart entry to open Chromium fullscreen to the local app:
 
 ```bash
@@ -127,7 +134,7 @@ cat > ~/.config/autostart/wisepi-kiosk.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=WisePi Kiosk
-Comment=Launch Chromium
+Comment=Launch Chromium to the local dash
 Exec=/bin/sh -lc 'sleep 5; B=$(command -v chromium || command -v chromium-browser); exec "$B" --noerrdialogs --disable-session-crashed-bubble --disable-infobars --kiosk http://localhost:8000'
 X-GNOME-Autostart-enabled=true
 EOF
@@ -140,7 +147,7 @@ css
 ```
 Reboot to confirm kiosk mode.
 
-### 7) Update / maintenance
+####7) Update / maintenance
 Pull code updates and restart the service if needed:
 
 ```bash

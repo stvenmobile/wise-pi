@@ -4,6 +4,7 @@ venv/
 # Python cache and bytecode
 __pycache__/
 *.py[cod]
+*.pyc
 *.pyo
 *.pyd
 
@@ -37,10 +38,5 @@ dist/
 # Backup archives
 *.zip
 *.tar.gz
-dash/app/.env
-dash/app/.venv/
-cyd/
-__pycache__/
-*.pyc
-dash/app/.venv/
-dash/app/.env
+app/.env
+app/.venv/
