@@ -1,7 +1,7 @@
 
 <p float="left">
-  <img src=".\images\images_front2.jpg" width="48%" alt="Front">
-  <img src=".\images\images_back.jpg"  width="48%" alt="Back">
+  <img src="dash_front2.jpg" width="48%" alt="Front">
+  <img src="dash_back.jpg"  width="48%" alt="Back">
 </p>
 
 
