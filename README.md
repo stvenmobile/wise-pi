@@ -102,9 +102,29 @@ sudo systemctl status wise-kiosk --no-pager         # status should be active
 
 curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 ```
+
 Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
+
+### 6) Autostart Chromium in kiosk
+Use a desktop autostart entry to open Chromium fullscreen to the local app:
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/wisepi-kiosk.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=WisePi Kiosk
+Comment=Launch Chromium to the local dash
+Exec=/bin/sh -lc 'sleep 5; B=$(command -v chromium || command -v chromium-browser); exec "$B" \
+           --noerrdialogs --disable-session-crashed-bubble \
+           --disable-infobars --kiosk \
+           --user-data-dir=/tmp/kiosk-profile \
+           --password-store=basic http://localhost:8000'
+X-GNOME-Autostart-enabled=true
+EOF
+```
 
 # Instructions for hiding cursor
 If you installed unclutter and want to hide the cursor, add this to your session autostart 
