@@ -21,8 +21,8 @@ weather:
   quote_interval: 5
 
 rotation:
-  sequence: ["weather", "quote", "art"]
+  sequence: ["weather", "quote", "flickr"]
   durations_seconds:
-    weather: 30
-    quote: 60
-    art: 60
+    weather: 20
+    quote: 20
+    flickr: 20

@@ -1,46 +1,57 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 import os
 import time
 import requests
 import random
+import logging
 from pathlib import Path
 import yaml
+from typing import Dict, Any, Tuple, Union, List
+
+# Local imports
+from . import flickr 
 
 # --- Configuration and Initialization ---
+logging.basicConfig(level=logging.INFO)
 ROOT = Path(__file__).parent
+
+# State Management (Tracks current type and last update time)
+_last = {"ts": 0, "content": None, "type": "quote"}
+
+# Load configuration once at startup
 try:
     with open(ROOT / "config.yaml", "r", encoding="utf-8") as f:
         CFG = yaml.safe_load(f)
 except FileNotFoundError:
     CFG = {}
-    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml not found.")
+    logging.error(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml not found.")
+except yaml.YAMLError as e:
+    CFG = {}
+    logging.error(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml parse error: {e}")
+
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
-# State Management (Tracks current type and last update time)
-_last = {"ts": 0, "content": None, "type": "quote"}
-
-# Define the sequence and durations from config
+# Define the sequence and durations from config (or use defaults if config failed)
 ROTATION_CFG = CFG.get("rotation", {})
 ROTATION_SEQUENCE = ROTATION_CFG.get("sequence", ["weather", "quote", "art"])
 DURATIONS = ROTATION_CFG.get("durations_seconds", {})
 
 # --- Universal Fallback ---
-def get_fallback_quote():
+def get_fallback_quote() -> Dict[str, str]:
     fallback = CFG.get("fallback_quotes", [])
     if fallback:
         now_int = int(time.time())
         item = fallback[now_int % len(fallback)]
         return {"quote": item["q"], "author": item["a"]}
-    return None
+    return {"quote": "Error loading content.", "author": "WisePi"}
 
 # --- Core Fetch Functions ---
 
-def fetch_weather():
+def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
     cfg_weather = CFG.get("weather", {})
     api_key = os.environ.get("OPENWEATHER_API_KEY") 
     lat = cfg_weather.get("lat")
@@ -51,6 +62,7 @@ def fetch_weather():
 
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
     
+    # ... (rest of the fetch_weather logic remains the same) ...
     max_retries = 3
     retry_delay_sec = 1 
     
@@ -74,12 +86,12 @@ def fetch_weather():
                     })
                     seen_days.add(day_ts)
             
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Weather SUCCESS (Status {r.status_code}).")
+            logging.info(f"DEBUG FETCH: Weather SUCCESS (Status {r.status_code}).")
             return forecast, None
             
         except requests.exceptions.HTTPError as e:
             error_msg = f"HTTP Error {e.response.status_code}"
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Weather FAILED (HTTP {e.response.status_code}). Falling back.")
+            logging.warning(f"DEBUG FETCH: Weather FAILED (HTTP {e.response.status_code}). Falling back.")
             return get_fallback_quote(), error_msg
             
         except Exception as e:
@@ -87,12 +99,12 @@ def fetch_weather():
                  time.sleep(retry_delay_sec)
                  continue 
             error_msg = f"{type(e).__name__}: {str(e)}"
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Weather FAILED ({type(e).__name__}). Falling back.")
+            logging.error(f"DEBUG FETCH: Weather FAILED ({type(e).__name__}). Falling back.")
             return get_fallback_quote(), error_msg
     return get_fallback_quote(), "Unknown failure after maximum retries."
 
 
-def fetch_quote():
+def fetch_quote() -> Tuple[Dict[str, str], Union[str, None]]:
     url = "https://zenquotes.io/api/random"
     max_retries = 3
     timeout_sec = 12
@@ -102,18 +114,19 @@ def fetch_quote():
             r = requests.get(url, timeout=timeout_sec)
             r.raise_for_status() 
             data = r.json()
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Quote SUCCESS (Status {r.status_code}).")
+            logging.info(f"DEBUG FETCH: Quote SUCCESS (Status {r.status_code}).")
             return {"quote": data[0]["q"], "author": data[0]["a"]}, None
         except Exception as e:
             if attempt == max_retries - 1:
-                print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Quote FAILED (Max Retries). Falling back.")
+                logging.warning(f"DEBUG FETCH: Quote FAILED (Max Retries). Falling back.")
                 return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
             time.sleep(0.5)
             
     return get_fallback_quote(), "Unexpected failure."
 
 
-def fetch_art():
+def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
+    # ... (rest of fetch_art logic remains the same) ...
     MET_SEARCH_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search"
     MET_OBJECT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects"
     
@@ -131,7 +144,6 @@ def fetch_art():
         if not object_ids:
             return get_fallback_quote(), "No object IDs found in search."
 
-        # Sample up to 100 IDs to make landscape search more resilient
         max_sample = 100 
         sample_ids = random.sample(object_ids, min(max_sample, len(object_ids)))
         
@@ -144,7 +156,6 @@ def fetch_art():
             r_object.raise_for_status()
             obj_data = r_object.json()
             
-            # --- UPDATED LOGIC: width >= height (Includes square images) ---
             if (obj_data.get('primaryImageSmall') and 
                 obj_data.get('primaryImageWidth', 0) >= obj_data.get('primaryImageHeight', 0)):
                 
@@ -161,13 +172,38 @@ def fetch_art():
 
     return get_fallback_quote(), "Could not find a suitable landscape or square image in sample."
 
+
+# 💡 NEW FLICKR FETCH FUNCTION 💡
+def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
+    """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
+    
+    flickr_config = CFG.get('flickr')
+    
+    if not flickr_config:
+        error_msg = "Flickr section missing from config.yaml."
+        logging.error(f"DEBUG FETCH: Flickr FAILED (Config Missing).")
+        return get_fallback_quote(), error_msg 
+        
+    # Call the actual Flickr logic from the imported module
+    photo_data = flickr.get_random_public_photo(flickr_config)
+
+    if not photo_data:
+        error_msg = "Failed to fetch photo from Flickr."
+        logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
+        return get_fallback_quote(), error_msg 
+
+    # Success: return the data and no error
+    logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
+    return photo_data, None
+
+
 # --- Helper Functions and Root Route ---
 
 @app.get("/")
 def root():
     return FileResponse(str(ROOT / "static" / "index.htm"))
 
-def get_next_type(current_type):
+def get_next_type(current_type: str) -> str:
     try:
         current_index = ROTATION_SEQUENCE.index(current_type)
         next_index = (current_index + 1) % len(ROTATION_SEQUENCE)
@@ -175,13 +211,15 @@ def get_next_type(current_type):
     except ValueError:
         return ROTATION_SEQUENCE[0]
 
-def get_fetch_function(content_type):
+def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'weather':
         return fetch_weather
     if content_type == 'quote':
         return fetch_quote
     if content_type == 'art':
-        return fetch_art
+        return fetch_art # Re-add art logic for fallback testing
+    if content_type == 'flickr':
+        return fetch_flickr
     return None
 
 # --- API Endpoint Handlers ---
@@ -206,13 +244,14 @@ def api_content():
         return JSONResponse({"error": f"Unknown content type: {next_type}"}, status_code=500)
 
     # 3. Fetch the new content
-    new_content, err = fetch_func()
+    # Note: All fetch_funcs MUST return (content, error_message or None)
+    new_content, err = fetch_func() 
     
     # Determine the actual content type returned (might be a fallback quote)
     content_type = 'quote' if isinstance(new_content, dict) and 'quote' in new_content else next_type
     
     # Log the result of the entire content cycle
-    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG ROTATE: Attempted {next_type}. Result: {content_type}. Error: {err}")
+    logging.info(f"DEBUG ROTATE: Attempted {next_type}. Result: {content_type}. Error: {err}")
 
     # 4. Success / Fallback
     if new_content:
