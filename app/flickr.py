@@ -81,6 +81,9 @@ def get_random_public_photo(config: dict):
             id=photo['id'], 
             secret=photo['secret']
         )
+
+        # 💡 ADD THIS DEBUG LINE 💡
+        logging.info(f"DEBUG FLICKR URL: {photo_url}")
         
         return {
             "url": photo_url

@@ -62,7 +62,7 @@
     function setDisplayMode(mode) {
       // Function to control visibility based on the current content type
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
-      document.getElementById('art-display').style.display = (mode === 'art') ? 'flex' : 'none';
+      document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr') ? 'flex' : 'none';
       document.getElementById('current-display').style.display = (mode === 'weather') ? 'flex' : 'none';
       document.getElementById('forecast-grid').style.display = (mode === 'weather') ? 'flex' : 'none';
     }
@@ -101,7 +101,7 @@
 
         const j = await r.json();
 
-        // --- LOGIC SPLIT: QUOTE VS. WEATHER VS. ART ---
+        // --- LOGIC SPLIT: QUOTE VS. WEATHER VS. IMAGE ---
 
         if (j.type === 'quote') {
             // --- QUOTE MODE ---
@@ -124,6 +124,7 @@
                 subEl.textContent = today.desc.toUpperCase();
 
                 // 2. Build 5-Day Grid
+                gridEl.innerHTML = ""; // Clear grid before building
                 forecast.forEach((day, index) => {
                     const date = new Date(day.day);
                     const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
@@ -144,19 +145,46 @@
             }
 
         } else if (j.type === 'art') {
-            // --- ART MODE ---
+            // --- ART MODE (Full Metadata) ---
             setDisplayMode('art');
-            const art = j.content;
+            const imageContent = j.content;
             
-            artImageEl.src = art.image_url;
-            artTitleEl.textContent = art.title;
-            artArtistEl.textContent = `By: ${art.artist} (${art.date})`;
+            // 💡 CRITICAL: Must check if imageContent is valid before proceeding 💡
+            if (imageContent && imageContent.image_url) {
+                artImageEl.src = imageContent.image_url;
+                artTitleEl.textContent = imageContent.title || "";
+                // Art has a 'date' field in the payload, so we use it.
+                artArtistEl.textContent = (imageContent.artist || imageContent.date) ? 
+                    `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
+            } else {
+                setDisplayMode('quote');
+                quoteEl.textContent = "Met Art fetch failed.";
+                authorEl.textContent = "Check service logs for API error details.";
+            }
 
+        } else if (j.type === 'flickr') {
+            // --- FLICKR MODE (Simplified URL Only) ---
+            setDisplayMode('art'); // Use the same display container
+            const imageContent = j.content;
+            
+            // 💡 CRITICAL FIX: Ensure imageContent is valid before processing 💡
+            if (imageContent && imageContent.image_url) {
+                artImageEl.src = imageContent.image_url;
+                
+                // Clear title/artist fields explicitly for Flickr
+                artTitleEl.textContent = ""; 
+                artArtistEl.textContent = ""; 
+            } else {
+                setDisplayMode('quote');
+                quoteEl.textContent = "Flickr fetch failed.";
+                authorEl.textContent = "Check service logs for API error details.";
+            }
+        
         } else {
-          // Fallback if API returns 200 OK but with an unhandled type
+          // Fallback if API returns 200 OK but with an unhandled type (should be impossible now)
           setDisplayMode('quote');
           quoteEl.textContent = "Error: Unexpected data format.";
-          authorEl.textContent = "Type was not recognized.";
+          authorEl.textContent = `Type "${j.type}" was not recognized.`;
         }
 
       } catch (e) {

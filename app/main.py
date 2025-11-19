@@ -174,7 +174,8 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
 def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
     
-    flickr_config = CFG.get('flickr')
+    # 💡 FIX 1: Retrieve flickr_config from CFG (Resolves UnboundLocalError)
+    flickr_config = CFG.get('flickr') 
     
     if not flickr_config:
         error_msg = "Flickr section missing from config.yaml."
@@ -187,11 +188,19 @@ def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     if not photo_data:
         error_msg = "Failed to fetch photo from Flickr."
         logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
+        # Return fallback quote on API failure
         return get_fallback_quote(), error_msg 
 
     # Success: return the data and no error
     logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
-    return photo_data, None
+    
+    # 💡 FIX 2: Explicitly build the final structure with image_url and required metadata 💡
+    return {
+        "image_url": photo_data.get("url"), 
+        "title": photo_data.get("title", ""), # Added for structural consistency in case frontend needs it
+        "artist": photo_data.get("artist", ""),
+        "date": "" 
+    }, None
 
 
 # --- Helper Functions and Root Route ---
@@ -241,37 +250,30 @@ def api_content():
         return JSONResponse({"error": f"Unknown content type: {next_type}"}, status_code=500)
 
     # 3. Fetch the new content
-    # Note: All fetch_funcs MUST return (content, error_message or None)
     new_content, err = fetch_func() 
     
-    # Determine the actual content type returned (might be a fallback quote)
-    # Check if content is a quote, which is the universal fallback
+    # Determine the actual content type returned (will be 'quote' if a fetch fails)
     content_type = 'quote' if isinstance(new_content, dict) and 'quote' in new_content else next_type
     
     # Log the result of the entire content cycle
     logging.info(f"DEBUG ROTATE: Attempted {next_type}. Result: {content_type}. Error: {err}")
 
-    # 4. Success / Fallback
+    # 4. Success / Failure
     if new_content:
+        # Success path
         _last.update({"content": new_content, "type": content_type, "ts": now})
         
         # Format output based on content type
         if content_type == 'quote':
             return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
         
-        # 💡 CORRECTED RETURN FOR IMAGE CONTENT (FLICKR/ART) 💡
+        # 💡 FINAL FIX: Ensure ALL image payloads (flickr, art) are correctly wrapped 💡
         elif content_type == 'flickr' or content_type == 'art':
-            # This handles the raw image payload from fetch_flickr (which is only {"url": "..."})
-            # or the structured payload from fetch_art.
             
-            # Ensure 'image_url' is the key the frontend uses for the image source
-            image_url = new_content.get('url', new_content.get('image_url')) 
+            # The frontend expects {"content": {"image_url": "...", ...}, "type": "flickr"}
             
-            # Return final formatted JSON structure that the frontend expects for an image:
             return {
-                "image_url": image_url,
-                "title": new_content.get('title', ''),       # Use title if present, otherwise empty string
-                "artist": new_content.get('artist', ''),     # Use artist if present, otherwise empty string
+                "content": new_content, 
                 "type": content_type, 
                 "cached": False
             }
@@ -279,9 +281,13 @@ def api_content():
         else:
             # Fallback for weather or other future types
             return {"content": new_content, "type": content_type, "cached": False}
+    
+    # 5. Failure Path (This should be unreachable due to the explicit fallback return in the fetch functions)
+    if err:
+        return JSONResponse({"error": f"Content Fetch Failed: {err}"}, status_code=503)
 
-    # Should be unreachable due to universal fallback
-    return JSONResponse({"error": "Content fetch failed, no fallback available."}, status_code=503)
+    # Should be unreachable
+    return JSONResponse({"error": "Content fetch failed unexpectedly."}, status_code=503)
 
 
 @app.get("/api/theme")

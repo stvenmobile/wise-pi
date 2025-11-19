@@ -33,7 +33,7 @@ flickr:
   tags: ""
 
 rotation:
-  sequence: ["quote","flickr","weather"]
+  sequence: ["flickr","flickr","flickr"]
   durations_seconds:
     weather: 20
     quote: 20
