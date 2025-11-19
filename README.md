@@ -80,14 +80,14 @@ Stop with Ctrl+C.
 
 ### 5) Install and Enable Systemd Services
 
-The service files in the `systemd/` directory are complete but use the placeholder username 'steve'. We will copy them to the system location after fixing the username.
+The service files in the `systemd/` directory are complete but use the placeholder username 'steve'. 
+We will copy them to the system location after fixing the username.
 
-**CRITICAL: Use a text editor (like nano) to globally replace ALL occurrences of 'steve' in the following two files with YOUR actual Raspberry Pi username (e.g., 'pi'):**
+**CRITICAL: Use a text editor to globally replace ALL occurrences of 'steve' in the following two files with YOUR actual Raspberry Pi username**
 
 * `~/wise-pi/systemd/wise-pi.service`
 * `~/wise-pi/systemd/wise-kiosk.service`
 
-**A. Copy Service Files and enable the services:**
 ```bash
 sudo cp ~/wise-pi/systemd/wise-pi.service /etc/systemd/system/
 sudo cp ~/wise-pi/systemd/wise-kiosk.service /etc/systemd/system/
@@ -105,19 +105,6 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
-### 6) Autostart Chromium in kiosk
-The kiosk service MUST run under your user account for GUI access.
-```bash
-mkdir -p /home/steve/.config/autostart # <-- REPLACE 'steve'
-cat > /home/steve/.config/autostart/wisepi-kiosk.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=WisePi Kiosk
-Comment=Launch Chromium
-Exec=/bin/sh -lc 'sleep 5; B=$(command -v chromium || command -v chromium-browser); exec "$B" --noerrdialogs --disable-session-crashed-bubble --disable-infobars --kiosk http://localhost:8000'
-X-GNOME-Autostart-enabled=true
-EOF
-```
 
 # Instructions for hiding cursor
 If you installed unclutter and want to hide the cursor, add this to your session autostart 
