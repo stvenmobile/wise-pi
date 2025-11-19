@@ -34,7 +34,6 @@ def get_random_public_photo(config: dict):
         'per_page': 50,        # Fetch 50 photos per page
         'format': 'json',
         'nojsoncallback': 1,
-        'extras': 'title,ownername', # Get title for display
     }
 
     try:
@@ -84,8 +83,6 @@ def get_random_public_photo(config: dict):
         )
         
         return {
-            "title": photo['title'] or "Untitled Photo",
-            "artist": photo['ownername'] or config.get('user_id'),
             "url": photo_url
         }
 

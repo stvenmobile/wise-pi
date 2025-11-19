@@ -62,7 +62,6 @@ def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
 
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
     
-    # ... (rest of the fetch_weather logic remains the same) ...
     max_retries = 3
     retry_delay_sec = 1 
     
@@ -126,7 +125,6 @@ def fetch_quote() -> Tuple[Dict[str, str], Union[str, None]]:
 
 
 def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
-    # ... (rest of fetch_art logic remains the same) ...
     MET_SEARCH_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search"
     MET_OBJECT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects"
     
@@ -173,7 +171,6 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
     return get_fallback_quote(), "Could not find a suitable landscape or square image in sample."
 
 
-# 💡 NEW FLICKR FETCH FUNCTION 💡
 def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
     
@@ -217,7 +214,7 @@ def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'quote':
         return fetch_quote
     if content_type == 'art':
-        return fetch_art # Re-add art logic for fallback testing
+        return fetch_art
     if content_type == 'flickr':
         return fetch_flickr
     return None
@@ -248,6 +245,7 @@ def api_content():
     new_content, err = fetch_func() 
     
     # Determine the actual content type returned (might be a fallback quote)
+    # Check if content is a quote, which is the universal fallback
     content_type = 'quote' if isinstance(new_content, dict) and 'quote' in new_content else next_type
     
     # Log the result of the entire content cycle
@@ -260,9 +258,28 @@ def api_content():
         # Format output based on content type
         if content_type == 'quote':
             return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
-        else:
-            return {"content": new_content, "type": content_type, "cached": False}
         
+        # 💡 CORRECTED RETURN FOR IMAGE CONTENT (FLICKR/ART) 💡
+        elif content_type == 'flickr' or content_type == 'art':
+            # This handles the raw image payload from fetch_flickr (which is only {"url": "..."})
+            # or the structured payload from fetch_art.
+            
+            # Ensure 'image_url' is the key the frontend uses for the image source
+            image_url = new_content.get('url', new_content.get('image_url')) 
+            
+            # Return final formatted JSON structure that the frontend expects for an image:
+            return {
+                "image_url": image_url,
+                "title": new_content.get('title', ''),       # Use title if present, otherwise empty string
+                "artist": new_content.get('artist', ''),     # Use artist if present, otherwise empty string
+                "type": content_type, 
+                "cached": False
+            }
+            
+        else:
+            # Fallback for weather or other future types
+            return {"content": new_content, "type": content_type, "cached": False}
+
     # Should be unreachable due to universal fallback
     return JSONResponse({"error": "Content fetch failed, no fallback available."}, status_code=503)
 

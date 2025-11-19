@@ -20,8 +20,20 @@ weather:
   display_duration_seconds: 20
   quote_interval: 5
 
+flickr:
+  # The environment variable names used to retrieve the keys
+  api_key_env_var: "FLICKR_API_KEY"
+  secret_env_var: "FLICKR_SECRET"
+  
+  # The Flickr User ID (NSID) needed for searching your photos
+  user_id: stven 
+  
+  # Optional settings for filtering
+  photoset_id: null 
+  tags: ""
+
 rotation:
-  sequence: ["weather", "quote", "flickr"]
+  sequence: ["quote","flickr","weather"]
   durations_seconds:
     weather: 20
     quote: 20
