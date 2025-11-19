@@ -1,7 +1,7 @@
 
 <p float="left">
-  <img src="images_front2.jpg" width="48%" alt="Front">
-  <img src="images_back.jpg"  width="48%" alt="Back">
+  <img src="images\images_front2.jpg" width="48%" alt="Front">
+  <img src="images\images_back.jpg"  width="48%" alt="Back">
 </p>
 
 
@@ -182,5 +182,4 @@ MIT (see repository root).
 FastAPI + Uvicorn for the API
 Chromium for kiosk
 zenquotes.io for quotes (no key required)
-
 
