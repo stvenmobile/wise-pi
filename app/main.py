@@ -210,28 +210,41 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
     if not api_key:
         return get_fallback_quote(), "Missing Smithsonian API Key (ENV)."
 
-    # Define specific search queries for the two types of art you want
-    queries = [
-        "type:online_media AND unit_code:SAAM AND object_type:Painting AND taxonomy.term:Impressionism",
-        "type:online_media AND unit_code:Freer AND object_type:Painting AND taxonomy.term:Japanese"
+    # The specific topics you want to cycle through
+    topics = [
+        'topic:"Impressionism"',
+        'topic:"Painting, American"',
+        'topic:"Painting, Japanese"',
+        'topic:"Painting, French"'
     ]
     
-    # Randomly select one query for the current fetch
-    query = random.choice(queries)
+    # Randomly select one topic for the current fetch
+    query_topic = random.choice(topics)
 
-    url = f"https://api.si.edu/openaccess/api/v1.0/search?q={query}&api_key={api_key}"
+    # Base parameters including the specific topic and random sort
+    params = {
+        'q': query_topic,
+        'rows': 50,
+        'sort': 'random',
+        'type': 'online_media', # Ensures we get items with image links
+        'api_key': api_key
+    }
+    
+    url = "https://api.si.edu/openaccess/api/v1.0/search"
     
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, params=params, timeout=10)
         r.raise_for_status()
         data = r.json()
         
-        # Check for results and sample one item
+        # Check for results and sample the first item (since it's randomly sorted)
         hits = data.get('response', {}).get('rows', [])
+        
         if not hits:
-            return get_fallback_quote(), f"Smithsonian search found no results for query: {query}"
+            return get_fallback_quote(), f"Smithsonian search found no results for query: {query_topic}"
 
-        item = random.choice(hits)
+        # Select the first item, as the API has already randomly sorted the 50 results
+        item = hits[0] 
         
         # Extract the primary image URL and metadata
         image_url = item.get('content', {}).get('online_media', {}).get('media', [{}])[0].get('url')
@@ -242,17 +255,19 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
         smithsonian_payload = {
             "image_url": image_url,
             "title": item.get('title', 'Untitled'),
+            # The 'name' field is used for artist in the Smithsonian structure
             "artist": item.get('content', {}).get('freetext', {}).get('name', ['Unknown Artist'])[0],
             "date": item.get('date', 'Unknown Date')
         }
         
-        logging.info("DEBUG FETCH: Smithsonian SUCCESS.")
+        logging.info(f"DEBUG FETCH: Smithsonian SUCCESS for topic: {query_topic}")
         return smithsonian_payload, None
 
     except Exception as e:
         error_msg = f"Smithsonian API failed: {type(e).__name__}: {str(e)}"
         logging.error(error_msg)
         return get_fallback_quote(), error_msg
+
 
 
 # --- Helper Functions and Root Route ---
