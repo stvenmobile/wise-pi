@@ -87,24 +87,26 @@ The service files in the `systemd/` directory are complete but use the placehold
 * `~/wise-pi/systemd/wise-pi.service`
 * `~/wise-pi/systemd/wise-kiosk.service`
 
-**A. Copy Service Files:**
+**A. Copy Service Files and enable the services:**
 ```bash
-# Copy the corrected service files to the system directory
 sudo cp ~/wise-pi/systemd/wise-pi.service /etc/systemd/system/
 sudo cp ~/wise-pi/systemd/wise-kiosk.service /etc/systemd/system/
 
-# Enable and start the service (using the replaced username)
 sudo systemctl daemon-reload
 sudo systemctl enable wise-pi.service
-sudo systemctl start  wise-pi.service
-systemctl status wise-pi --no-pager                                # status should be active
+sudo systemctl enable wise-kiosk.service
+sudo systemctl start wise-pi.service
+sudo systemctl start wise-kiosk.service
+sudo systemctl status wise-pi --no-pager            # status should be active
+sudo systemctl status wise-kiosk --no-pager         # status should be active
+
 curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 ```
 Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
 ### 6) Autostart Chromium in kiosk
-# The kiosk service MUST run under your user account for GUI access.
+The kiosk service MUST run under your user account for GUI access.
 ```bash
 mkdir -p /home/steve/.config/autostart # <-- REPLACE 'steve'
 cat > /home/steve/.config/autostart/wisepi-kiosk.desktop <<'EOF'
@@ -124,33 +126,21 @@ If you installed unclutter and want to hide the cursor, add this to your session
 ```bash
 @unclutter -idle 1 -root
 ```
+Reboot to confirm kiosk mode.
 
-# Reboot to confirm kiosk mode.
-
-### 7) Update / maintenance
-Pull code updates and restart the service if needed:
-
-```bash
-cd ~/wise-pi
-git fetch --all --prune
-git switch rpi4-hdmi
-git pull --ff-only
-
-cd ~/wise-pi/app
-. .venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart wise-pi
-```
 
 ## Troubleshooting
 Kiosk didn’t launch at login
 
-Ensure file exists: ~/.config/autostart/wisepi-kiosk.desktop
+Verify both services are enabled and started successfully
+```bash
+sudo systemctl status wise-pi
+sudo systemctl status wise-kiosk
 Confirm Chromium exists (chromium or chromium-browser)
 Try manually:
 
 ```bash
-chromium --kiosk http://localhost:8000    # or chromium-browser ...
+chromium --kiosk http://localhost:8000    # or chromium-browser
 ```
 
 API not running
