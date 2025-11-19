@@ -203,6 +203,58 @@ def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     }, None
 
 
+def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
+    cfg_smithsonian = CFG.get("smithsonian", {})
+    api_key = os.environ.get(cfg_smithsonian.get("api_key_env_var"))
+
+    if not api_key:
+        return get_fallback_quote(), "Missing Smithsonian API Key (ENV)."
+
+    # Define specific search queries for the two types of art you want
+    queries = [
+        "type:online_media AND unit_code:SAAM AND object_type:Painting AND taxonomy.term:Impressionism",
+        "type:online_media AND unit_code:Freer AND object_type:Painting AND taxonomy.term:Japanese"
+    ]
+    
+    # Randomly select one query for the current fetch
+    query = random.choice(queries)
+
+    url = f"https://api.si.edu/openaccess/api/v1.0/search?q={query}&api_key={api_key}"
+    
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Check for results and sample one item
+        hits = data.get('response', {}).get('rows', [])
+        if not hits:
+            return get_fallback_quote(), f"Smithsonian search found no results for query: {query}"
+
+        item = random.choice(hits)
+        
+        # Extract the primary image URL and metadata
+        image_url = item.get('content', {}).get('online_media', {}).get('media', [{}])[0].get('url')
+        
+        if not image_url:
+             return get_fallback_quote(), "Smithsonian item lacks a public image URL."
+
+        smithsonian_payload = {
+            "image_url": image_url,
+            "title": item.get('title', 'Untitled'),
+            "artist": item.get('content', {}).get('freetext', {}).get('name', ['Unknown Artist'])[0],
+            "date": item.get('date', 'Unknown Date')
+        }
+        
+        logging.info("DEBUG FETCH: Smithsonian SUCCESS.")
+        return smithsonian_payload, None
+
+    except Exception as e:
+        error_msg = f"Smithsonian API failed: {type(e).__name__}: {str(e)}"
+        logging.error(error_msg)
+        return get_fallback_quote(), error_msg
+
+
 # --- Helper Functions and Root Route ---
 
 @app.get("/")
@@ -224,6 +276,8 @@ def get_fetch_function(content_type: str) -> Union[callable, None]:
         return fetch_quote
     if content_type == 'art':
         return fetch_art
+    if content_type == 'smithsonian':
+        return fetch_smithsonian
     if content_type == 'flickr':
         return fetch_flickr
     return None

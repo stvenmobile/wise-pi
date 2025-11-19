@@ -14,27 +14,27 @@ fallback_quotes:
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
 
 weather:
-  # The API key is now loaded from the OPENWEATHER_API_KEY environment variable.
-  lat: 35.2216 
-  lon: -80.8401 
+  lat: 35.2216
+  lon: -80.8401
   display_duration_seconds: 20
   quote_interval: 5
 
 flickr:
-  # The environment variable names used to retrieve the keys
   api_key_env_var: "FLICKR_API_KEY"
   secret_env_var: "FLICKR_SECRET"
-  
-  # The Flickr User ID (NSID) needed for searching your photos
-  user_id: stven 
-  
-  # Optional settings for filtering
-  photoset_id: null 
+  user_id: stven
+  photoset_id: null
   tags: ""
 
+smithsonian:
+  api_key_env_var: "SMITHSONIAN_API_KEY"
+  display_duration_seconds: 60
+
 rotation:
-  sequence: ["flickr","flickr","flickr"]
+  sequence: ["flickr","quote","smithsonian","quote","flickr","quote","weather"]
   durations_seconds:
-    weather: 20
-    quote: 20
-    flickr: 20
+    weather: 45
+    quote: 45
+    flickr: 45
+    smithsonian: 45
+

@@ -69,10 +69,6 @@ html, body, #app {
 
 /* --- 4. Weather Mode Styling --- */
 
-/* We use the JS to set display:none for #quote-display, so this block removes the old, redundant rule: */
-/* #quote, #author { display: none; } <-- Removed redundancy */
-
-
 /* Current Day Display (Top Half - Icon, Temp, Condition) */
 #current-display {
     display: flex; 
@@ -148,4 +144,40 @@ html, body, #app {
     font-size: 24px; 
     font-weight: lighter;
     margin-top: 5px;
+}
+
+
+/* --- 5. Art/Flickr Image Mode Styling --- */
+
+/* Container for the image display (Ensures vertical centering of image + text) */
+#art-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 95%; /* Use almost full container width */
+    
+    /* CRITICAL: Matches the height we set in the JavaScript */
+    min-height: 90vh; /* Set to match the required viewport size */
+}
+
+/* Styles for the actual image element */
+#art-image {
+    max-width: 90%;    /* Max width of the image (90% of container) */
+    max-height: 90vh;  /* CRITICAL: Max height (85% of viewport height) */
+    object-fit: contain; /* Ensures the image fits entirely without cropping */
+    margin-bottom: 10px;
+}
+
+/* Styles for the title/artist text beneath the image */
+#art-title {
+    font-size: 24px; 
+    text-align: center;
+    margin-top: 10px;
+}
+
+#art-artist {
+    font-size: 18px; 
+    font-weight: 300;
+    text-align: center;
 }
