@@ -103,7 +103,7 @@ def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
     return get_fallback_quote(), "Unknown failure after maximum retries."
 
 
-def fetch_quote() -> Tuple[Dict[str, str], Union[str, None]]:
+def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     url = "https://zenquotes.io/api/random"
     max_retries = 3
     timeout_sec = 12
@@ -118,6 +118,47 @@ def fetch_quote() -> Tuple[Dict[str, str], Union[str, None]]:
         except Exception as e:
             if attempt == max_retries - 1:
                 logging.warning(f"DEBUG FETCH: Quote FAILED (Max Retries). Falling back.")
+                return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
+            time.sleep(0.5)
+            
+    return get_fallback_quote(), "Unexpected failure."
+
+
+
+def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
+    cfg_ninja = CFG.get("ninjaquotes", {})
+    api_key = os.environ.get(cfg_ninja.get("api_key_env_var"))
+    topics = cfg_ninja.get("topics", [])
+    
+    if not (api_key and topics):
+        return get_fallback_quote(), "Missing Ninja API Key or Topics in config."
+
+    # 1. Select a random topic to keep queries varied
+    topic = random.choice(topics)
+    
+    url = f"https://api.api-ninjas.com/v1/quotes?category={topic}"
+    headers = {'X-Api-Key': api_key} # API Ninjas requires key in header
+    
+    max_retries = 3
+    timeout_sec = 12
+
+    for attempt in range(max_retries):
+        try:
+            # CRITICAL: Use the custom header for authentication
+            r = requests.get(url, headers=headers, timeout=timeout_sec)
+            r.raise_for_status() 
+            data = r.json()
+            
+            # API Ninjas returns a list of quotes; take the first one
+            if not data or not data[0].get('quote'):
+                 return get_fallback_quote(), f"Ninja API returned no quote for category: {topic}"
+                 
+            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
+            return {"quote": data[0]["quote"], "author": data[0]["author"]}, None
+        
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logging.warning(f"DEBUG FETCH: Ninja Quote FAILED (Max Retries). Falling back.")
                 return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
             time.sleep(0.5)
             
@@ -364,8 +405,10 @@ def get_next_type(current_type: str) -> str:
 def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'weather':
         return fetch_weather
-    if content_type == 'quote':
-        return fetch_quote
+    if content_type == 'zenquotes':
+        return fetch_zenquotes
+    if content_type == 'ninjaquotes':
+        return fetch_ninjaquotes
     if content_type == 'art':
         return fetch_art
     if content_type == 'flickr':

@@ -9,6 +9,19 @@ theme:
   author_font_px: 48
   max_width_px: 1500      # keep text readable on 800x480
 
+
+ninjaquotes:
+  api_key_env_var: "NINJA_API_KEY"
+  # Categories to randomly sample from for the quote query
+  topics: ["wisdom", "philosophy", "life", "truth", "humor", "success", "courage", "happiness", "art", "nature", "freedom"]
+
+rotation:
+  durations_seconds:
+    # ... (existing durations) ...
+    zenquotes: 45
+    ninjaquotes: 45
+# ...
+
 fallback_quotes:
   - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
@@ -35,10 +48,11 @@ harvard:
   display_duration_seconds: 45
 
 rotation:
-  sequence: ["harvard","flickr","harvard","quote","harvard","flickr","weather"]
+  sequence: ["flickr","ninjaquotes","harvard","ninjaquotes","harvard","ninjaquotes","weather"] 
   durations_seconds:
     weather: 45
-    quote: 45
+    zenquotes: 45
+    ninjaquotes: 45
     flickr: 45
     smithsonian: 45
     harvard: 45
