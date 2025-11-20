@@ -159,7 +159,7 @@ html, body, #app {
 /* --- 5A. FLICKR MODE (HIDES METADATA, MAXIMIZES IMAGE) --- */
 #art-display.flickr-mode #art-image {
     /* Critical: Set height higher than rich mode to maximize vertical space */
-    max-height: 95vh;  
+    max-height: 90vh;  
 }
 
 #art-display.flickr-mode #art-title,
