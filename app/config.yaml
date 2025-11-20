@@ -16,7 +16,7 @@ fallback_quotes:
 weather:
   lat: 35.2216
   lon: -80.8401
-  display_duration_seconds: 20
+  display_duration_seconds: 45
   quote_interval: 5
 
 flickr:
@@ -28,13 +28,17 @@ flickr:
 
 smithsonian:
   api_key_env_var: "SMITHSONIAN_API_KEY"
-  display_duration_seconds: 60
+  display_duration_seconds: 45
+
+harvard:
+  api_key_env_var: "HARVARD_API_KEY"
+  display_duration_seconds: 45
 
 rotation:
-  sequence: ["flickr","quote","smithsonian","quote","flickr","quote","weather"]
+  sequence: ["harvard","flickr","harvard","quote","harvard","flickr","weather"]
   durations_seconds:
     weather: 45
     quote: 45
     flickr: 45
     smithsonian: 45
-
+    harvard: 45

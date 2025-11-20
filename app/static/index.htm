@@ -62,7 +62,8 @@
     function setDisplayMode(mode) {
       // Function to control visibility based on the current content type
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
-      document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr') ? 'flex' : 'none';
+      // Image display needs to be visible for all three image types
+      document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
       document.getElementById('current-display').style.display = (mode === 'weather') ? 'flex' : 'none';
       document.getElementById('forecast-grid').style.display = (mode === 'weather') ? 'flex' : 'none';
     }
@@ -144,34 +145,37 @@
                 subEl.textContent = "Empty forecast array.";
             }
 
-        } else if (j.type === 'art') {
-            // --- ART MODE (Full Metadata) ---
+        } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian') {
+            // --- RICH METADATA IMAGE MODE (Art, Harvard, Smithsonian) ---
             setDisplayMode('art');
             const imageContent = j.content;
             
-            // 💡 CRITICAL: Must check if imageContent is valid before proceeding 💡
+            // CRITICAL FIX: Ensure imageContent and the URL exist before processing 
             if (imageContent && imageContent.image_url) {
                 artImageEl.src = imageContent.image_url;
+                
+                // Use default empty strings for structural consistency
                 artTitleEl.textContent = imageContent.title || "";
-                // Art has a 'date' field in the payload, so we use it.
+                
+                // Handles structure from Met, Harvard, and Smithsonian APIs (Artist/Date combo)
                 artArtistEl.textContent = (imageContent.artist || imageContent.date) ? 
                     `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
             } else {
                 setDisplayMode('quote');
-                quoteEl.textContent = "Met Art fetch failed.";
+                quoteEl.textContent = "Rich Art fetch failed.";
                 authorEl.textContent = "Check service logs for API error details.";
             }
 
         } else if (j.type === 'flickr') {
-            // --- FLICKR MODE (Simplified URL Only) ---
-            setDisplayMode('art'); // Use the same display container
+            // --- FLICKR IMAGE MODE (Simplified URL Only) ---
+            setDisplayMode('art'); 
             const imageContent = j.content;
             
-            // 💡 CRITICAL FIX: Ensure imageContent is valid before processing 💡
+            // CRITICAL FIX: Ensure imageContent is valid before processing 
             if (imageContent && imageContent.image_url) {
                 artImageEl.src = imageContent.image_url;
                 
-                // Clear title/artist fields explicitly for Flickr
+                // Clear title/artist fields explicitly for Flickr (as they are not wanted)
                 artTitleEl.textContent = ""; 
                 artArtistEl.textContent = ""; 
             } else {

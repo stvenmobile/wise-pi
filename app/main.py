@@ -130,7 +130,7 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
     
     try:
         search_params = {
-            'q': 'painting OR print OR photograph', 
+            'q': 'painting OR drawing OR sketch', 
             'hasImages': 'true',
             'isPublicDomain': 'true' 
         }
@@ -171,38 +171,6 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
     return get_fallback_quote(), "Could not find a suitable landscape or square image in sample."
 
 
-def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
-    """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
-    
-    # 💡 FIX 1: Retrieve flickr_config from CFG (Resolves UnboundLocalError)
-    flickr_config = CFG.get('flickr') 
-    
-    if not flickr_config:
-        error_msg = "Flickr section missing from config.yaml."
-        logging.error(f"DEBUG FETCH: Flickr FAILED (Config Missing).")
-        return get_fallback_quote(), error_msg 
-        
-    # Call the actual Flickr logic from the imported module
-    photo_data = flickr.get_random_public_photo(flickr_config)
-
-    if not photo_data:
-        error_msg = "Failed to fetch photo from Flickr."
-        logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
-        # Return fallback quote on API failure
-        return get_fallback_quote(), error_msg 
-
-    # Success: return the data and no error
-    logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
-    
-    # 💡 FIX 2: Explicitly build the final structure with image_url and required metadata 💡
-    return {
-        "image_url": photo_data.get("url"), 
-        "title": photo_data.get("title", ""), # Added for structural consistency in case frontend needs it
-        "artist": photo_data.get("artist", ""),
-        "date": "" 
-    }, None
-
-
 def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
     cfg_smithsonian = CFG.get("smithsonian", {})
     api_key = os.environ.get(cfg_smithsonian.get("api_key_env_var"))
@@ -212,28 +180,37 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
 
     # The specific topics you want to cycle through
     topics = [
-        'topic:"Impressionism"',
-        'topic:"Painting, American"',
+        'topic:Impressionism',
         'topic:"Painting, Japanese"',
         'topic:"Painting, French"'
     ]
     
-    # Randomly select one topic for the current fetch
-    query_topic = random.choice(topics)
+    query_topic = topics[0] 
 
+    try:
+        query_topic = random.choice(topics)
+    except IndexError:
+        query_topic = 'topic:"Painting, Japanese"'
+        
     # Base parameters including the specific topic and random sort
     params = {
-        'q': query_topic,
+        'q': query_topic, 
         'rows': 50,
         'sort': 'random',
-        'type': 'online_media', # Ensures we get items with image links
-        'api_key': api_key
+        'api_key': api_key,
+        'fsq': 'online_media_type:Images AND access:CC0',
+        'fso': 'media_usage',
     }
-    
+
     url = "https://api.si.edu/openaccess/api/v1.0/search"
     
     try:
-        r = requests.get(url, params=params, timeout=10)
+        # DEBUG STEP: Construct the full URL for logging
+        req = requests.Request('GET', url, params=params)
+        prepared_req = req.prepare()
+        logging.info(f"DEBUG SMITHSONIAN URL: {prepared_req.url}") 
+        
+        r = requests.get(prepared_req.url, timeout=10) 
         r.raise_for_status()
         data = r.json()
         
@@ -255,7 +232,6 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
         smithsonian_payload = {
             "image_url": image_url,
             "title": item.get('title', 'Untitled'),
-            # The 'name' field is used for artist in the Smithsonian structure
             "artist": item.get('content', {}).get('freetext', {}).get('name', ['Unknown Artist'])[0],
             "date": item.get('date', 'Unknown Date')
         }
@@ -268,6 +244,107 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
         logging.error(error_msg)
         return get_fallback_quote(), error_msg
 
+
+
+def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
+    cfg_harvard = CFG.get("harvard", {})
+    api_key = os.environ.get(cfg_harvard.get("api_key_env_var"))
+
+    if not api_key:
+        return get_fallback_quote(), "Missing Harvard API Key (ENV)."
+
+    # Define specific filters targeting your desired content
+    filters = [
+        # Japanese Art (Focus on classification and period)
+        "classification:Paintings&period=Edo+Period", 
+        "classification:Drawings&period=Meiji+Period",
+        # Impressionist Art (Focus on movement/style)
+        "period=Impressionism",
+        "style=Post-Impressionism"
+    ]
+    
+    # Randomly select one filter set
+    filter_set = random.choice(filters)
+    
+    # 1. Base URL for Object Search
+    url = "https://api.harvardartmuseums.org/object"
+
+    # 2. Get total count for random offset
+    # First, get the total number of records that match the filter.
+    params = {
+        'apikey': api_key,
+        'hasimage': 1,             # CRITICAL: Only return objects with images
+        'q': filter_set,           # The selected filter (e.g., period=...)
+        'size': 1                  # Request only 1 result to get the total count
+    }
+    
+    try:
+        r_count = requests.get(url, params=params, timeout=10)
+        r_count.raise_for_status()
+        data_count = r_count.json()
+        
+        total_records = data_count.get('info', {}).get('totalrecords', 0)
+        if total_records == 0:
+            return get_fallback_quote(), f"Harvard search found no records for filter: {filter_set}"
+
+        # 3. Simulate Randomness: Pick a random page offset
+        random_offset = random.randint(1, total_records - 1) if total_records > 1 else 0
+        
+        # 4. Fetch the final item using the offset
+        params['page'] = random_offset
+        params['size'] = 1 # Fetch exactly one item at the random page/offset
+
+        r_final = requests.get(url, params=params, timeout=10)
+        r_final.raise_for_status()
+        item = r_final.json().get('records', [{}])[0]
+        
+        # 5. Extract and format the payload
+        harvard_payload = {
+            "image_url": item.get('primaryimageurl'),
+            "title": item.get('title', 'Untitled'),
+            "artist": item.get('people', [{}])[0].get('displayname', 'Unknown Artist'),
+            "date": item.get('dated', 'Unknown Date')
+        }
+        
+        logging.info(f"DEBUG FETCH: Harvard SUCCESS for filter: {filter_set}")
+        return harvard_payload, None
+
+    except Exception as e:
+        error_msg = f"Harvard API failed: {type(e).__name__}: {str(e)}"
+        logging.error(error_msg)
+        return get_fallback_quote(), error_msg
+
+
+
+def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
+    """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
+    
+    # 💡 FIX 3: Ensure flickr_config is defined at the start 💡
+    flickr_config = CFG.get('flickr') 
+    
+    if not flickr_config:
+        error_msg = "Flickr section missing from config.yaml."
+        logging.error(f"DEBUG FETCH: Flickr FAILED (Config Missing).")
+        return get_fallback_quote(), error_msg 
+        
+    # Call the actual Flickr logic from the imported module
+    photo_data = flickr.get_random_public_photo(flickr_config)
+
+    if not photo_data:
+        error_msg = "Failed to fetch photo from Flickr."
+        logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
+        return get_fallback_quote(), error_msg 
+
+    # Success: return the data and no error
+    logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
+    
+    # Explicitly build the final structure with image_url and required metadata
+    return {
+        "image_url": photo_data.get("url"), 
+        "title": photo_data.get("title", ""),
+        "artist": photo_data.get("artist", ""),
+        "date": "" 
+    }, None
 
 
 # --- Helper Functions and Root Route ---
@@ -291,10 +368,12 @@ def get_fetch_function(content_type: str) -> Union[callable, None]:
         return fetch_quote
     if content_type == 'art':
         return fetch_art
-    if content_type == 'smithsonian':
-        return fetch_smithsonian
     if content_type == 'flickr':
         return fetch_flickr
+    if content_type == 'harvard': # <-- NEW FUNCTION MAPPING
+        return fetch_harvard
+    if content_type == 'smithsonian':
+        return fetch_smithsonian
     return None
 
 # --- API Endpoint Handlers ---
@@ -336,8 +415,8 @@ def api_content():
         if content_type == 'quote':
             return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
         
-        # 💡 FINAL FIX: Ensure ALL image payloads (flickr, art) are correctly wrapped 💡
-        elif content_type == 'flickr' or content_type == 'art':
+        # FINAL FIX: Ensure ALL image payloads (flickr, art, smithsonian) are correctly wrapped 
+        elif content_type in ['flickr', 'art', 'smithsonian']:
             
             # The frontend expects {"content": {"image_url": "...", ...}, "type": "flickr"}
             
@@ -351,7 +430,7 @@ def api_content():
             # Fallback for weather or other future types
             return {"content": new_content, "type": content_type, "cached": False}
     
-    # 5. Failure Path (This should be unreachable due to the explicit fallback return in the fetch functions)
+    # 5. Failure Path (If fetch_func returned None and an error message)
     if err:
         return JSONResponse({"error": f"Content Fetch Failed: {err}"}, status_code=503)
 
