@@ -5,7 +5,7 @@
     --font: sans-serif;
     --quote-size: 48px;
     --author-size: 30px;
-    --maxw: 720px;
+    --maxw: 1500px; /* Use the max width from config */
 }
 
 html, body, #app {
@@ -27,15 +27,13 @@ html, body, #app {
     display: flex;
     flex-direction: column; 
     align-items: center;
-    width: 90%;
+    width: 95%; /* Increased for better screen usage */
     max-width: var(--maxw);
-    min-height: 50vh; 
+    min-height: 95vh; /* Maximize height usage */
     justify-content: center; 
 }
 
-/* --- 3. Quote Mode Styling (Base styles for text) --- */
-
-/* Wrapper for quote and author - handles centering */
+/* --- 3. Quote Mode Styling --- */
 #quote-display {
     display: none; /* Hidden by default; JS controls visibility */
     flex-direction: column; 
@@ -46,14 +44,11 @@ html, body, #app {
     min-height: 60vh; 
 }
 
-/* Base style for the quote text (Crash Prevention) */
 #quote {
     width: 100%;
     text-align: center;
     font-size: var(--quote-size);
     margin: 10px 0;
-    
-    /* --- CRASH PREVENTION RULES --- */
     word-wrap: break-word; 
     overflow-wrap: break-word;
     white-space: normal; 
@@ -68,8 +63,6 @@ html, body, #app {
 }
 
 /* --- 4. Weather Mode Styling --- */
-
-/* Current Day Display (Top Half - Icon, Temp, Condition) */
 #current-display {
     display: flex; 
     flex-direction: column; 
@@ -78,7 +71,6 @@ html, body, #app {
     margin-bottom: 20px;
 }
 
-/* CRITICAL: Styles the Icon and Temp line horizontally */
 #main-temp-line {
     display: flex; 
     flex-direction: row; 
@@ -107,13 +99,11 @@ html, body, #app {
     font-weight: 300;
 }
 
-/* Forecast Grid Layout (Bottom Half - 5-Day Horizontal) */
 #forecast-grid {
     display: flex; 
     flex-direction: row; 
     justify-content: space-around; 
     align-items: flex-start; 
-    
     width: 95%; 
     border-top: 1px solid var(--fg); 
     padding-top: 20px;
@@ -149,27 +139,40 @@ html, body, #app {
 
 /* --- 5. Art/Flickr Image Mode Styling --- */
 
-/* Container for the image display (Ensures vertical centering of image + text) */
+/* Base Container (Applies to all image types) */
 #art-display {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 95%; /* Use almost full container width */
-    
-    /* CRITICAL: Matches the height we set in the JavaScript */
-    min-height: 90vh; /* Set to match the required viewport size */
+    width: 99%; /* Maximize container width */
+    min-height: 95vh; /* Maximize height for all image types */
 }
 
-/* Styles for the actual image element */
+/* Base Image Element (Applies to all image types) */
 #art-image {
-    max-width: 90%;    /* Max width of the image (90% of container) */
-    max-height: 90vh;  /* CRITICAL: Max height (85% of viewport height) */
-    object-fit: contain; /* Ensures the image fits entirely without cropping */
+    max-width: 99%;    
+    object-fit: contain; 
     margin-bottom: 10px;
 }
 
-/* Styles for the title/artist text beneath the image */
+/* --- 5A. FLICKR MODE (HIDES METADATA, MAXIMIZES IMAGE) --- */
+#art-display.flickr-mode #art-image {
+    /* Critical: Set height higher than rich mode to maximize vertical space */
+    max-height: 95vh;  
+}
+
+#art-display.flickr-mode #art-title,
+#art-display.flickr-mode #art-artist {
+    display: none; /* Hide title and artist completely for Flickr */
+}
+
+/* --- 5B. RICH MODE (ALLOWS ROOM FOR METADATA) --- */
+#art-display.rich-mode #art-image {
+    /* Critical: Leave room for the two lines of text at the bottom */
+    max-height: 85vh; 
+}
+
 #art-title {
     font-size: 24px; 
     text-align: center;

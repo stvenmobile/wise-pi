@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Wise Display</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.5" /> 
+  <link rel="stylesheet" href="/static/styles.css?v=1.6" /> 
 </head>
 <body>
   <main id="app">
@@ -15,10 +15,10 @@
             <div id="author"></div>
         </div>
         
-        <div id="art-display" style="display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh;">
-            <img id="art-image" style="max-width: 90%; max-height: 70vh; margin-bottom: 10px;">
-            <div id="art-title" style="font-size: 24px;"></div>
-            <div id="art-artist" style="font-size: 18px; font-weight: 300;"></div>
+        <div id="art-display">
+            <img id="art-image">
+            <div id="art-title"></div>
+            <div id="art-artist"></div>
         </div>
         
         <div id="current-display">
@@ -50,11 +50,10 @@
       document.documentElement.style.setProperty("--fg", theme.fg);
       document.documentElement.style.setProperty("--font", theme.font_family);
       document.documentElement.style.setProperty("--quote-size", theme.quote_font_px + "px");
-      document.documentElement.style.setProperty("--author-size", theme.author_font_px + "px");
+      document.documentElement.style.setProperty("--author-size", theme.author_px + "px");
       document.documentElement.style.setProperty("--maxw", theme.max_width_px + "px");
     }
 
-    // *** fitText function removed for stability ***
     function fitText(el, basePx) {
       // Stub function to be removed if dynamic resizing is not needed.
     }
@@ -62,10 +61,18 @@
     function setDisplayMode(mode) {
       // Function to control visibility based on the current content type
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
-      // Image display needs to be visible for all three image types
       document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
       document.getElementById('current-display').style.display = (mode === 'weather') ? 'flex' : 'none';
       document.getElementById('forecast-grid').style.display = (mode === 'weather') ? 'flex' : 'none';
+
+      // Reset image classes before setting new mode
+      document.getElementById('art-display').classList.remove('flickr-mode', 'rich-mode');
+      
+      if (mode === 'flickr') {
+          document.getElementById('art-display').classList.add('flickr-mode');
+      } else if (mode === 'art' || mode === 'harvard' || mode === 'smithsonian') {
+          document.getElementById('art-display').classList.add('rich-mode');
+      }
     }
 
     // --- Main Content Loader ---
@@ -75,6 +82,7 @@
       const authorEl = document.getElementById("author");
       
       // Art elements
+      const artDisplayEl = document.getElementById("art-display"); // Need the container element
       const artImageEl = document.getElementById("art-image");
       const artTitleEl = document.getElementById("art-title");
       const artArtistEl = document.getElementById("art-artist");
@@ -146,15 +154,15 @@
             }
 
         } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian') {
-            // --- RICH METADATA IMAGE MODE (Art, Harvard, Smithsonian) ---
-            setDisplayMode('art');
+            // --- RICH METADATA IMAGE MODE (Met, Harvard, Smithsonian) ---
+            setDisplayMode(j.type); // Sets the mode and applies rich-mode class via setDisplayMode
             const imageContent = j.content;
             
             // CRITICAL FIX: Ensure imageContent and the URL exist before processing 
             if (imageContent && imageContent.image_url) {
                 artImageEl.src = imageContent.image_url;
                 
-                // Use default empty strings for structural consistency
+                // Fill metadata fields (title/artist/date should be present)
                 artTitleEl.textContent = imageContent.title || "";
                 
                 // Handles structure from Met, Harvard, and Smithsonian APIs (Artist/Date combo)
@@ -168,7 +176,7 @@
 
         } else if (j.type === 'flickr') {
             // --- FLICKR IMAGE MODE (Simplified URL Only) ---
-            setDisplayMode('art'); 
+            setDisplayMode(j.type); // Sets the mode and applies flickr-mode class via setDisplayMode
             const imageContent = j.content;
             
             // CRITICAL FIX: Ensure imageContent is valid before processing 
