@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 import yaml
 from typing import Dict, Any, Tuple, Union, List
+from urllib.parse import quote_plus
 
 # Local imports
 from . import flickr 
@@ -103,50 +104,39 @@ def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
     return get_fallback_quote(), "Unknown failure after maximum retries."
 
 
-def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
-    url = "https://zenquotes.io/api/random"
-    max_retries = 3
-    timeout_sec = 12
-
-    for attempt in range(max_retries):
-        try:
-            r = requests.get(url, timeout=timeout_sec)
-            r.raise_for_status() 
-            data = r.json()
-            logging.info(f"DEBUG FETCH: Quote SUCCESS (Status {r.status_code}).")
-            return {"quote": data[0]["q"], "author": data[0]["a"]}, None
-        except Exception as e:
-            if attempt == max_retries - 1:
-                logging.warning(f"DEBUG FETCH: Quote FAILED (Max Retries). Falling back.")
-                return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
-            time.sleep(0.5)
-            
-    return get_fallback_quote(), "Unexpected failure."
-
-
 
 def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
+    """Fetches a random quote from API Ninjas, selected from configured topics."""
+    
     cfg_ninja = CFG.get("ninjaquotes", {})
-    api_key = os.environ.get(cfg_ninja.get("api_key_env_var"))
+    # Retrieve API key from environment
+    api_key = os.environ.get(cfg_ninja.get("api_key_env_var")) 
     topics = cfg_ninja.get("topics", [])
     
-    if not (api_key and topics):
-        return get_fallback_quote(), "Missing Ninja API Key or Topics in config."
+    if not api_key:
+        logging.error("DEBUG FETCH: Ninja Quote FAILED. API Key not found in environment.")
+        return get_fallback_quote(), "Missing Ninja API Key (ENV)."
+    
+    if not topics:
+        logging.error("DEBUG FETCH: Ninja Quote FAILED. Topics list is empty in config.")
+        return get_fallback_quote(), "Missing Topics in config."
 
     # 1. Select a random topic to keep queries varied
     topic = random.choice(topics)
-    
-    url = f"https://api.api-ninjas.com/v1/quotes?category={topic}"
-    headers = {'X-Api-Key': api_key} # API Ninjas requires key in header
+    encoded_topic = quote_plus(topic)
+
+    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" # Use encoded topic
+    headers = {'X-Api-Key': api_key}    
     
     max_retries = 3
     timeout_sec = 12
+    status_code = None
 
     for attempt in range(max_retries):
         try:
             # CRITICAL: Use the custom header for authentication
             r = requests.get(url, headers=headers, timeout=timeout_sec)
-            r.raise_for_status() 
+            r.raise_for_status() # Raises an HTTPError for 4xx/5xx responses
             data = r.json()
             
             # API Ninjas returns a list of quotes; take the first one
@@ -156,13 +146,28 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
             return {"quote": data[0]["quote"], "author": data[0]["author"]}, None
         
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code
+            
             if attempt == max_retries - 1:
-                logging.warning(f"DEBUG FETCH: Ninja Quote FAILED (Max Retries). Falling back.")
+                logging.warning(f"DEBUG FETCH: Ninja Quote FAILED (HTTP {status_code}). Falling back.")
+                return get_fallback_quote(), f"Max retries exceeded. Last error: HTTP {status_code}"
+            
+            # Log the specific attempt failure status
+            logging.warning(f"Ninja API attempt {attempt+1} failed with status: {status_code}")
+            time.sleep(0.5)
+
+        except Exception as e:
+            # Catch all other exceptions (network, JSON parsing)
+            error_msg = f"Non-HTTP Error: {type(e).__name__}: {str(e)}"
+            if attempt == max_retries - 1:
+                logging.error(f"DEBUG FETCH: Ninja Quote FAILED. Last error: {error_msg}")
                 return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
             time.sleep(0.5)
             
-    return get_fallback_quote(), "Unexpected failure."
+    return get_fallback_quote(), "Unexpected failure after maximum retries."
+
+
 
 
 def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
@@ -452,7 +457,7 @@ def api_content():
     # 4. Success / Failure
     if new_content:
         # Success path
-        _last.update({"content": new_content, "type": content_type, "ts": now})
+        _last.update({"content": new_content, "type": next_type, "ts": now})
         
         # Format output based on content type
         if content_type == 'quote':
