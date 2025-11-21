@@ -35,8 +35,8 @@ harvard:
   display_duration_seconds: 45
 
 rotation:
-  # sequence: ["harvard","weather","ninjaquotes","flickr","harvard","ninjaquotes"] 
-  sequence: ["weather","ninjaquotes"]
+  sequence: ["flickr","harvard","weather","ninjaquotes","flickr","weather","harvard","ninjaquotes"] 
+  # sequence: ["weather","ninjaquotes"]
   durations_seconds:
     weather: 60
     ninjaquotes: 60
