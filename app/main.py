@@ -52,56 +52,15 @@ def get_fallback_quote() -> Dict[str, str]:
 
 # --- Core Fetch Functions ---
 
-def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
-    cfg_weather = CFG.get("weather", {})
-    api_key = os.environ.get("OPENWEATHER_API_KEY") 
-    lat = cfg_weather.get("lat")
-    lon = cfg_weather.get("lon")
 
-    if not (api_key and lat and lon):
-        return get_fallback_quote(), "Missing API Key (ENV) or Geo Config (YAML)"
-
-    url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
+def fetch_wunderground() -> Tuple[Dict[str, str], Union[str, None]]:
+    """Returns the URL for the full Wunderground web page."""
     
-    max_retries = 3
-    retry_delay_sec = 1 
+    # We don't fetch data; we return the instruction to the frontend to display the URL.
+    wunderground_url = "https://www.wunderground.com/" 
     
-    for attempt in range(max_retries):
-        try:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status() 
-            data = r.json()
-            
-            # Data extraction logic
-            forecast = []
-            seen_days = set()
-            for item in data['list']:
-                 day_ts = item['dt_txt'].split(' ')[0]
-                 if day_ts not in seen_days and len(forecast) < 5:
-                    forecast.append({
-                        "day": day_ts,
-                        "temp": item['main']['temp'],
-                        "desc": item['weather'][0]['description'],
-                        "icon": item['weather'][0]['icon']
-                    })
-                    seen_days.add(day_ts)
-            
-            logging.info(f"DEBUG FETCH: Weather SUCCESS (Status {r.status_code}).")
-            return forecast, None
-            
-        except requests.exceptions.HTTPError as e:
-            error_msg = f"HTTP Error {e.response.status_code}"
-            logging.warning(f"DEBUG FETCH: Weather FAILED (HTTP {e.response.status_code}). Falling back.")
-            return get_fallback_quote(), error_msg
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                 time.sleep(retry_delay_sec)
-                 continue 
-            error_msg = f"{type(e).__name__}: {str(e)}"
-            logging.error(f"DEBUG FETCH: Weather FAILED ({type(e).__name__}). Falling back.")
-            return get_fallback_quote(), error_msg
-    return get_fallback_quote(), "Unknown failure after maximum retries."
+    # The frontend needs to know this is a special URL type.
+    return {"external_url": wunderground_url, "type": "wunderground"}, None
 
 
 
@@ -125,7 +84,7 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     topic = random.choice(topics)
     encoded_topic = quote_plus(topic)
 
-    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" # Use encoded topic
+    url = f"https://api.api-ninjas.com/v2/randomquotes?category={encoded_topic}" # Use encoded topic
     headers = {'X-Api-Key': api_key}    
     
     max_retries = 3
@@ -409,9 +368,7 @@ def get_next_type(current_type: str) -> str:
 
 def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'weather':
-        return fetch_weather
-    if content_type == 'zenquotes':
-        return fetch_zenquotes
+        return fetch_wunderground
     if content_type == 'ninjaquotes':
         return fetch_ninjaquotes
     if content_type == 'art':

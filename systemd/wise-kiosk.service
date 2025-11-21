@@ -1,16 +1,30 @@
 [Unit]
-Description=Chromium Kiosk for Wise-Pi
+Description=Chromium Kiosk for Wise Dash
+# Wait for the graphical session to be fully ready
 After=graphical.target wise-pi.service
 Wants=wise-pi.service
 
 [Service]
-Environment=XDG_RUNTIME_DIR=/run/user/1000
+Type=simple
+# User and Group MUST match your actual login username (e.g., pi, steve)
 User=steve
 Group=steve
-ExecStart=/usr/bin/chromium-browser --kiosk --incognito --noerrdialogs \
-  --disable-translate --disable-features=TranslateUI \
+# Path to the user's home directory for accessing the display environment
+WorkingDirectory=/home/steve/
+
+# Use the full command, breaking lines with a backslash (\)
+ExecStart=/usr/bin/chromium-browser \
+  --noerrdialogs \
+  --disable-session-crashed-bubble \
+  --disable-infobars \
+  --kiosk \
+  --user-data-dir=/tmp/kiosk-profile \
+  --password-store=basic \
+  --disable-web-security \
   http://localhost:8000/
+  
 Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=graphical.target

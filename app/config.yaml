@@ -19,12 +19,6 @@ fallback_quotes:
   - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
 
-weather:
-  lat: 35.2216
-  lon: -80.8401
-  display_duration_seconds: 45
-  quote_interval: 5
-
 flickr:
   api_key_env_var: "FLICKR_API_KEY"
   secret_env_var: "FLICKR_SECRET"
@@ -41,11 +35,11 @@ harvard:
   display_duration_seconds: 45
 
 rotation:
-  sequence: ["ninjaquotes","flickr","harvard","zenquotes","harvard","ninjaquotes","weather"] 
+  # sequence: ["harvard","weather","ninjaquotes","flickr","harvard","ninjaquotes"] 
+  sequence: ["weather","ninjaquotes"]
   durations_seconds:
-    weather: 45
-    zenquotes: 45
-    ninjaquotes: 45
-    flickr: 45
-    smithsonian: 45
-    harvard: 45
+    weather: 60
+    ninjaquotes: 60
+    flickr: 60
+    smithsonian: 60
+    harvard: 60

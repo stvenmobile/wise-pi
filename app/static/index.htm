@@ -28,9 +28,14 @@
             </div>
             <div id="sub-text"></div>
         </div>
-        
+
+        <div id="weather-iframe-display" style="display: none; height: 100vh; width: 100vw; position: absolute;">
+            <iframe id="wunderground-iframe" style="height: 100%; width: 100%; border: none;"></iframe>
+        </div>        
+
         <div id="forecast-grid">
-            </div>
+        </div>
+
     </div>
   </main>
   <script>
@@ -62,8 +67,13 @@
       // Function to control visibility based on the current content type
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
       document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
-      document.getElementById('current-display').style.display = (mode === 'weather') ? 'flex' : 'none';
-      document.getElementById('forecast-grid').style.display = (mode === 'weather') ? 'flex' : 'none';
+      
+      // Control for WUNDERGROUND IFRAME MODE
+      document.getElementById('weather-iframe-display').style.display = (mode === 'weather') ? 'flex' : 'none';
+
+      // Hide all standard forecast elements during weather mode
+      document.getElementById('current-display').style.display = 'none';
+      document.getElementById('forecast-grid').style.display = 'none';
 
       // Reset image classes before setting new mode
       document.getElementById('art-display').classList.remove('flickr-mode', 'rich-mode');
@@ -120,37 +130,20 @@
             authorEl.textContent = "— " + j.author;
 
         } else if (j.type === 'weather') {
-            // --- WEATHER MODE ---
-            setDisplayMode('weather');
-            const forecast = j.content;
+            // --- WUNDERGROUND IFRAME MODE ---
+            // The content object from the backend is expected to be {external_url: "..."}
             
-            if (Array.isArray(forecast) && forecast.length > 0) {
-                const today = forecast[0];
-                
-                // 1. Current Display 
-                iconContainerEl.innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
-                mainEl.textContent = `${Math.round(today.temp)}°F`; 
-                subEl.textContent = today.desc.toUpperCase();
-
-                // 2. Build 5-Day Grid
-                gridEl.innerHTML = ""; // Clear grid before building
-                forecast.forEach((day, index) => {
-                    const date = new Date(day.day);
-                    const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
-                    
-                    const item = document.createElement('div');
-                    item.className = 'forecast-item';
-                    item.innerHTML = `
-                        <div class="forecast-day">${dayString.toUpperCase()}</div>
-                        <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}">
-                        <div class="forecast-temp">${Math.round(day.temp)}°F</div>
-                    `;
-                    gridEl.appendChild(item);
-                });
-                
+            const content = j.content;
+            
+            // Check for the expected key and switch the iframe source
+            if (content && content.external_url) {
+                setDisplayMode('weather');
+                document.getElementById('wunderground-iframe').src = content.external_url;
             } else {
-                mainEl.textContent = "Weather data unavailable.";
-                subEl.textContent = "Empty forecast array.";
+                // Fallback for an error where weather data structure is wrong
+                setDisplayMode('quote');
+                quoteEl.textContent = "Weather URL Error";
+                authorEl.textContent = "Backend failed to provide external URL.";
             }
 
         } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian') {
