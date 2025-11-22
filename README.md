@@ -13,7 +13,7 @@ running in **Chromium kiosk mode** at boot. The application will provide a seque
 content types: Zenquote random quote, Ninjaquote random quote from sel;etable categories, artwork from the Smithsonian 
 Institution, artwork from the Harvard Art Museum, or a random photo from user's Flickr account.
 The length of time each content type remains visible is configurable, as well as which of the types to include in the rotation, 
-and th eorder in which they are displayed.
+and the order in which they are displayed.
 
 ---
 
