@@ -1,3 +1,7 @@
+### This service did not work for me so I converted it to ###
+### to an Autostart process. But your mileage might vary  ###
+### So I left it here as a reference in case it is needed ###
+
 [Unit]
 Description=Chromium Kiosk for Wise Dash
 # Wait for the graphical session to be fully ready
