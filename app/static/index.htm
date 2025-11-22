@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Wise Display</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.6" /> 
+  <link rel="stylesheet" href="/static/styles.css?v=1.9" /> 
 </head>
 <body>
   <main id="app">
@@ -21,28 +21,33 @@
             <div id="art-artist"></div>
         </div>
         
-        <div id="current-display">
-            <div id="main-temp-line">
-                <div id="main-icon-container"></div>
-                <div id="main-text" aria-live="polite"></div>
+        <div id="weather-display">
+            
+            <div id="weather-forecast-panel">
+                <div id="current-display">
+                    <div id="main-temp-line">
+                        <div id="main-icon-container"></div>
+                        <div id="main-text" aria-live="polite"></div>
+                    </div>
+                    <div id="sub-text"></div>
+                </div>
+                
+                <div id="forecast-grid">
+                    </div>
             </div>
-            <div id="sub-text"></div>
+            
+            <div id="weather-quote-panel">
+                <div id="weather-quote"></div>
+                <div id="weather-author"></div>
+            </div>
         </div>
-
-        <div id="weather-iframe-display" style="display: none; height: 100vh; width: 100vw; position: absolute;">
-            <iframe id="wunderground-iframe" style="height: 100%; width: 100%; border: none;"></iframe>
-        </div>        
-
-        <div id="forecast-grid">
         </div>
-
-    </div>
   </main>
   <script>
     let theme = {
       bg: "#000", fg: "#fff",
       font_family: "system-ui, sans-serif",
-      quote_font_px: 20, author_font_px: 12, max_width_px: 400
+      quote_font_px: 20, author_px: 12, max_width_px: 400
     };
     
     // --- Helper Functions ---
@@ -64,16 +69,13 @@
     }
 
     function setDisplayMode(mode) {
-      // Function to control visibility based on the current content type
+      // Control visibility for all modes
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
       document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
       
-      // Control for WUNDERGROUND IFRAME MODE
-      document.getElementById('weather-iframe-display').style.display = (mode === 'weather') ? 'flex' : 'none';
+      // 💡 NEW: Control Dual-Panel Weather Display 💡
+      document.getElementById('weather-display').style.display = (mode === 'weather') ? 'flex' : 'none';
 
-      // Hide all standard forecast elements during weather mode
-      document.getElementById('current-display').style.display = 'none';
-      document.getElementById('forecast-grid').style.display = 'none';
 
       // Reset image classes before setting new mode
       document.getElementById('art-display').classList.remove('flickr-mode', 'rich-mode');
@@ -92,23 +94,22 @@
       const authorEl = document.getElementById("author");
       
       // Art elements
-      const artDisplayEl = document.getElementById("art-display"); // Need the container element
       const artImageEl = document.getElementById("art-image");
       const artTitleEl = document.getElementById("art-title");
       const artArtistEl = document.getElementById("art-artist");
 
-      // Weather elements
-      const mainEl = document.getElementById("main-text");
-      const subEl = document.getElementById("sub-text");
+      // Weather elements (NEW DUAL-PANEL TARGETS)
+      const currentTextEl = document.getElementById("main-text");
+      const subTextEl = document.getElementById("sub-text");
       const iconContainerEl = document.getElementById("main-icon-container");
-      const gridEl = document.getElementById("forecast-grid");
+      const forecastGridEl = document.getElementById("forecast-grid");
+      const weatherQuoteEl = document.getElementById("weather-quote");
+      const weatherAuthorEl = document.getElementById("weather-author");
 
       // Initial state reset
       quoteEl.textContent = "Loading...";
       authorEl.textContent = "Please wait...";
-      iconContainerEl.innerHTML = "";
-      gridEl.innerHTML = ""; 
-
+      
       try {
         const fetchUrl = "/api/content"; 
         const r = await fetch(fetchUrl); 
@@ -119,46 +120,89 @@
         }
 
         const j = await r.json();
+        const content = j.content; // The fetched content payload
 
         // --- LOGIC SPLIT: QUOTE VS. WEATHER VS. IMAGE ---
 
-        if (j.type === 'quote') {
-            // --- QUOTE MODE ---
+        if (j.type === 'quote' || j.type === 'zenquotes' || j.type === 'ninjaquotes') {
+            // --- STANDARD QUOTE MODE ---
             setDisplayMode('quote');
             
-            quoteEl.textContent = "“" + j.quote + "”";
-            authorEl.textContent = "— " + j.author;
+            // Access properties directly (no j.content wrapper for quotes)
+            if (j.quote) { 
+                quoteEl.textContent = "“" + j.quote + "”";
+                authorEl.textContent = "— " + j.author;
+            } else {
+                quoteEl.textContent = "“Content fetch failed.”";
+                authorEl.textContent = "— Check logs for API error";
+            }
 
         } else if (j.type === 'weather') {
-            // --- WUNDERGROUND IFRAME MODE ---
-            // The content object from the backend is expected to be {external_url: "..."}
+            // --- DUAL-PANEL WEATHER/QUOTE MODE ---
+            setDisplayMode('weather');
             
-            const content = j.content;
+            const weatherData = content.weather; // The {forecast: [...], current: {...}} object
+            const forecast = weatherData.forecast; // Array of 5-day forecast
+            const current = weatherData.current;   // Pressure/humidity object
+
             
-            // Check for the expected key and switch the iframe source
-            if (content && content.external_url) {
-                setDisplayMode('weather');
-                document.getElementById('wunderground-iframe').src = content.external_url;
+            // 1. Render Current Weather and Forecast
+            // 💡 FIX: Check the forecast array directly 💡
+            if (Array.isArray(forecast) && forecast.length > 0) {
+                const today = forecast[0];
+                
+                // Current Display 
+                iconContainerEl.innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
+                currentTextEl.textContent = `${Math.round(today.temp)}°F`; 
+                
+                subTextEl.innerHTML = `
+                    ${today.desc.toUpperCase()} 
+                    <span class="weather-metrics">
+                        ${"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"}Press: ${current.pressure}hPa 
+                        ${"&nbsp;&nbsp;&nbsp;&nbsp;"}Hum: ${current.humidity}%
+                    </span>              
+                `;
+
+                // 5-Day Grid
+                forecastGridEl.innerHTML = "";
+                forecast.forEach((day, index) => {
+                    const date = new Date(day.day);
+                    const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
+                    
+                    const item = document.createElement('div');
+                    item.className = 'forecast-item';
+                    item.innerHTML = `
+                        <div class="forecast-day">${dayString.toUpperCase()}</div>
+                        <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}">
+                        <div class="forecast-temp">${Math.round(day.temp)}°F</div>
+                    `;
+                    forecastGridEl.appendChild(item);
+                });
+                
             } else {
-                // Fallback for an error where weather data structure is wrong
-                setDisplayMode('quote');
-                quoteEl.textContent = "Weather URL Error";
-                authorEl.textContent = "Backend failed to provide external URL.";
+                currentTextEl.textContent = "Weather data unavailable.";
+                subTextEl.textContent = "Empty forecast array.";
             }
+            
+            // 2. Render Quote
+            const quoteData = content.quote;
+            if (quoteData && quoteData.quote) {
+                weatherQuoteEl.textContent = "“" + quoteData.quote + "”";
+                weatherAuthorEl.textContent = "— " + quoteData.author;
+            } else {
+                weatherQuoteEl.textContent = "Quote failed.";
+                weatherAuthorEl.textContent = "";
+            }
+
 
         } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian') {
             // --- RICH METADATA IMAGE MODE (Met, Harvard, Smithsonian) ---
-            setDisplayMode(j.type); // Sets the mode and applies rich-mode class via setDisplayMode
+            setDisplayMode(j.type); 
             const imageContent = j.content;
             
-            // CRITICAL FIX: Ensure imageContent and the URL exist before processing 
             if (imageContent && imageContent.image_url) {
                 artImageEl.src = imageContent.image_url;
-                
-                // Fill metadata fields (title/artist/date should be present)
                 artTitleEl.textContent = imageContent.title || "";
-                
-                // Handles structure from Met, Harvard, and Smithsonian APIs (Artist/Date combo)
                 artArtistEl.textContent = (imageContent.artist || imageContent.date) ? 
                     `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
             } else {
@@ -169,14 +213,11 @@
 
         } else if (j.type === 'flickr') {
             // --- FLICKR IMAGE MODE (Simplified URL Only) ---
-            setDisplayMode(j.type); // Sets the mode and applies flickr-mode class via setDisplayMode
+            setDisplayMode(j.type); 
             const imageContent = j.content;
             
-            // CRITICAL FIX: Ensure imageContent is valid before processing 
             if (imageContent && imageContent.image_url) {
                 artImageEl.src = imageContent.image_url;
-                
-                // Clear title/artist fields explicitly for Flickr (as they are not wanted)
                 artTitleEl.textContent = ""; 
                 artArtistEl.textContent = ""; 
             } else {
@@ -186,7 +227,7 @@
             }
         
         } else {
-          // Fallback if API returns 200 OK but with an unhandled type (should be impossible now)
+          // Fallback
           setDisplayMode('quote');
           quoteEl.textContent = "Error: Unexpected data format.";
           authorEl.textContent = `Type "${j.type}" was not recognized.`;
@@ -203,22 +244,16 @@
     async function boot() {
       await loadTheme();
     
-      // *** ADD 3-SECOND DELAY FOR NETWORK SETTLEMENT ***
       const startupDelayMs = 3000; 
       console.log(`Starting in ${startupDelayMs / 1000} seconds to allow network to stabilize.`);
 
-      // Wait before loading the first content
       await new Promise(resolve => setTimeout(resolve, startupDelayMs));
-      // **********************************************
 
       await loadContent(); // Initial load
 
-      // Use a fixed 60-second TTL for subsequent intervals
       const ttl = 60000; 
       setInterval(loadContent, ttl);
     }
-     
-    // Window resize handler removed for stability
 
     boot();
   </script>

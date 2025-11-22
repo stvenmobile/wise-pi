@@ -41,26 +41,145 @@ ROTATION_CFG = CFG.get("rotation", {})
 ROTATION_SEQUENCE = ROTATION_CFG.get("sequence", ["weather", "quote", "art"])
 DURATIONS = ROTATION_CFG.get("durations_seconds", {})
 
-# --- Universal Fallback ---
-def get_fallback_quote() -> Dict[str, str]:
-    fallback = CFG.get("fallback_quotes", [])
-    if fallback:
-        now_int = int(time.time())
-        item = fallback[now_int % len(fallback)]
-        return {"quote": item["q"], "author": item["a"]}
-    return {"quote": "Error loading content.", "author": "WisePi"}
+
+
 
 # --- Core Fetch Functions ---
 
 
-def fetch_wunderground() -> Tuple[Dict[str, str], Union[str, None]]:
-    """Returns the URL for the full Wunderground web page."""
+def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
+    """Fetches a 5-day/3-hour forecast from OpenWeatherMap."""
+    cfg_weather = CFG.get("weather", {})
+    api_key = os.environ.get("OPENWEATHER_API_KEY") 
+    lat = cfg_weather.get("lat")
+    lon = cfg_weather.get("lon")
+
+    if not (api_key and lat and lon):
+        return None, "Missing API Key (ENV) or Geo Config (YAML)"
+
+    url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
     
-    # We don't fetch data; we return the instruction to the frontend to display the URL.
-    wunderground_url = "https://www.wunderground.com/" 
+    max_retries = 3
+    retry_delay_sec = 1 
     
-    # The frontend needs to know this is a special URL type.
-    return {"external_url": wunderground_url, "type": "wunderground"}, None
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status() 
+            data = r.json()
+            
+            # Data extraction logic: Filter 3-hour data to get 5 distinct days (6 items total)
+            forecast = []
+            seen_days = set()
+            # --- CRITICAL: Extract Pressure and Humidity from the first item (today) ---
+            # The first item (data['list'][0]) is the current weather forecast
+            current_main = data['list'][0]['main']
+            current_weather_data = {
+                "pressure": current_main.get('pressure'),
+                "humidity": current_main.get('humidity')
+            }
+
+            for item in data['list']:
+                 day_ts = item['dt_txt'].split(' ')[0]
+                 if day_ts not in seen_days and len(forecast) < 6: # < 6 limits it to 5 full days
+                    forecast.append({
+                        "day": day_ts,
+                        "temp": item['main']['temp'],
+                        "desc": item['weather'][0]['description'],
+                        "icon": item['weather'][0]['icon']
+                    })
+                    seen_days.add(day_ts)
+            
+            logging.info(f"DEBUG FETCH: Weather SUCCESS (Status {r.status_code}).")
+            return {"forecast": forecast, "current": current_weather_data}, None
+            
+        except Exception as e:
+            error_msg = f"Weather API attempt {attempt + 1} failed: {type(e).__name__}"
+            logging.error(error_msg)
+            
+            if attempt < max_retries - 1:
+                 time.sleep(retry_delay_sec)
+                 continue 
+            
+            return None, f"Weather API failed after {max_retries} attempts: {str(e)}"
+    return None, "Unexpected weather API failure."
+
+
+
+def fetch_weather_and_quote() -> Tuple[Dict[str, Any], Union[str, None]]:
+    """Fetches weather and quote data simultaneously for the dual display."""
+    
+    # Attempt to fetch both necessary pieces of data
+    weather_content, weather_err = fetch_weather() # This is the 5-day forecast data
+    quote_content, quote_err = fetch_zenquotes()   # This is the quote data
+    
+    if not weather_content:
+        # If weather fails, log it and return failure, letting the rotation move on.
+        logging.error(f"DUAL-FETCH: Weather failed. Error: {weather_err}")
+        return None, "Weather component failed in dual fetch."
+    
+    # Even if quote fails, we proceed with the weather data, using a placeholder.
+    if not quote_content:
+        # NOTE: This placeholder is simple data, not a formatted quote payload
+        quote_content = {"quote": "Quote fetch failed.", "author": "ZenQuotes API"}
+        logging.warning("DUAL-FETCH: Quote failed, substituting placeholder.")
+
+    # Package data under a single 'content' key for the frontend
+    dual_payload = {
+        "weather": weather_content,
+        "quote": quote_content
+    }
+    
+    return dual_payload, None
+
+# --- Inside app/main.py, update get_fetch_function ---
+def get_fetch_function(content_type: str) -> Union[callable, None]:
+    if content_type == 'weather':
+        return fetch_weather_and_quote # <--- NEW DUAL-FETCH FUNCTION
+    # ... (rest of the map remains the same) ...
+
+
+
+
+
+def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
+    """Fetches a random quote from ZenQuotes.io."""
+    
+    # ZenQuotes requires no API key or specific configuration
+    url = "https://zenquotes.io/api/random"
+    max_retries = 3
+    timeout_sec = 12
+
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, timeout=timeout_sec)
+            r.raise_for_status() 
+            data = r.json()
+            
+            # ZenQuotes returns a list containing one quote dictionary
+            if not data or not data[0].get('q'):
+                return None, "ZenQuotes API returned empty or malformed data."
+            
+            logging.info(f"DEBUG FETCH: ZenQuotes SUCCESS (Status {r.status_code}).")
+            
+            # Return content and no error
+            return {"quote": data[0]["q"], "author": data[0]["a"]}, None
+            
+        except Exception as e:
+            error_msg = f"ZenQuotes API attempt {attempt + 1} failed: {type(e).__name__}"
+            logging.warning(error_msg)
+            
+            if attempt < max_retries - 1:
+                # Sleep briefly and then continue to the next attempt
+                time.sleep(0.5)
+                continue
+            
+            # If max retries hit, return the failure without displaying a quote
+            logging.error(f"ZenQuotes API failed after {max_retries} attempts.")
+            return None, f"ZenQuotes API failed: {type(e).__name__}: {str(e)}"
+            
+    return None, "Unexpected ZenQuotes API failure."
+
 
 
 
@@ -74,17 +193,17 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     
     if not api_key:
         logging.error("DEBUG FETCH: Ninja Quote FAILED. API Key not found in environment.")
-        return get_fallback_quote(), "Missing Ninja API Key (ENV)."
+        return None, "Missing Ninja API Key (ENV)."
     
     if not topics:
         logging.error("DEBUG FETCH: Ninja Quote FAILED. Topics list is empty in config.")
-        return get_fallback_quote(), "Missing Topics in config."
+        return None, "Missing Topics in config."
 
     # 1. Select a random topic to keep queries varied
     topic = random.choice(topics)
     encoded_topic = quote_plus(topic)
 
-    url = f"https://api.api-ninjas.com/v2/randomquotes?category={encoded_topic}" # Use encoded topic
+    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" 
     headers = {'X-Api-Key': api_key}    
     
     max_retries = 3
@@ -100,7 +219,7 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             
             # API Ninjas returns a list of quotes; take the first one
             if not data or not data[0].get('quote'):
-                 return get_fallback_quote(), f"Ninja API returned no quote for category: {topic}"
+                 return None, f"Ninja API returned no quote for category: {topic}"
                  
             logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
             return {"quote": data[0]["quote"], "author": data[0]["author"]}, None
@@ -110,9 +229,8 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             
             if attempt == max_retries - 1:
                 logging.warning(f"DEBUG FETCH: Ninja Quote FAILED (HTTP {status_code}). Falling back.")
-                return get_fallback_quote(), f"Max retries exceeded. Last error: HTTP {status_code}"
+                return None, f"Max retries exceeded. Last error: HTTP {status_code}"
             
-            # Log the specific attempt failure status
             logging.warning(f"Ninja API attempt {attempt+1} failed with status: {status_code}")
             time.sleep(0.5)
 
@@ -121,12 +239,10 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             error_msg = f"Non-HTTP Error: {type(e).__name__}: {str(e)}"
             if attempt == max_retries - 1:
                 logging.error(f"DEBUG FETCH: Ninja Quote FAILED. Last error: {error_msg}")
-                return get_fallback_quote(), f"Max retries exceeded. Last error: {type(e).__name__}"
+                return None, f"Max retries exceeded. Last error: {type(e).__name__}"
             time.sleep(0.5)
             
-    return get_fallback_quote(), "Unexpected failure after maximum retries."
-
-
+    return None, "Unexpected failure after maximum retries."
 
 
 def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
@@ -145,13 +261,13 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
         
         object_ids = search_data.get('objectIDs', [])
         if not object_ids:
-            return get_fallback_quote(), "No object IDs found in search."
+            return None, "No object IDs found in search."
 
         max_sample = 100 
         sample_ids = random.sample(object_ids, min(max_sample, len(object_ids)))
         
     except Exception as e:
-        return get_fallback_quote(), f"Met Art Search failed: {type(e).__name__}"
+        return None, f"Met Art Search failed: {type(e).__name__}"
 
     for obj_id in sample_ids:
         try:
@@ -173,7 +289,7 @@ def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
         except Exception as e:
             continue
 
-    return get_fallback_quote(), "Could not find a suitable landscape or square image in sample."
+    return None, "Could not find a suitable landscape or square image in sample."
 
 
 def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
@@ -181,7 +297,7 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
     api_key = os.environ.get(cfg_smithsonian.get("api_key_env_var"))
 
     if not api_key:
-        return get_fallback_quote(), "Missing Smithsonian API Key (ENV)."
+        return None, "Missing Smithsonian API Key (ENV)."
 
     # The specific topics you want to cycle through
     topics = [
@@ -223,7 +339,7 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
         hits = data.get('response', {}).get('rows', [])
         
         if not hits:
-            return get_fallback_quote(), f"Smithsonian search found no results for query: {query_topic}"
+            return None, f"Smithsonian search found no results for query: {query_topic}"
 
         # Select the first item, as the API has already randomly sorted the 50 results
         item = hits[0] 
@@ -232,7 +348,7 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
         image_url = item.get('content', {}).get('online_media', {}).get('media', [{}])[0].get('url')
         
         if not image_url:
-             return get_fallback_quote(), "Smithsonian item lacks a public image URL."
+             return None, "Smithsonian item lacks a public image URL."
 
         smithsonian_payload = {
             "image_url": image_url,
@@ -247,8 +363,7 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
     except Exception as e:
         error_msg = f"Smithsonian API failed: {type(e).__name__}: {str(e)}"
         logging.error(error_msg)
-        return get_fallback_quote(), error_msg
-
+        return None, error_msg
 
 
 def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
@@ -256,14 +371,12 @@ def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
     api_key = os.environ.get(cfg_harvard.get("api_key_env_var"))
 
     if not api_key:
-        return get_fallback_quote(), "Missing Harvard API Key (ENV)."
+        return None, "Missing Harvard API Key (ENV)."
 
     # Define specific filters targeting your desired content
     filters = [
-        # Japanese Art (Focus on classification and period)
         "classification:Paintings&period=Edo+Period", 
         "classification:Drawings&period=Meiji+Period",
-        # Impressionist Art (Focus on movement/style)
         "period=Impressionism",
         "style=Post-Impressionism"
     ]
@@ -274,63 +387,79 @@ def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
     # 1. Base URL for Object Search
     url = "https://api.harvardartmuseums.org/object"
 
-    # 2. Get total count for random offset
-    # First, get the total number of records that match the filter.
-    params = {
-        'apikey': api_key,
-        'hasimage': 1,             # CRITICAL: Only return objects with images
-        'q': filter_set,           # The selected filter (e.g., period=...)
-        'size': 1                  # Request only 1 result to get the total count
-    }
+    max_retries = 3
+    retry_delay_sec = 1 
     
-    try:
-        r_count = requests.get(url, params=params, timeout=10)
-        r_count.raise_for_status()
-        data_count = r_count.json()
-        
-        total_records = data_count.get('info', {}).get('totalrecords', 0)
-        if total_records == 0:
-            return get_fallback_quote(), f"Harvard search found no records for filter: {filter_set}"
+    # 庁 PRIMARY RETRY LOOP 庁
+    for attempt in range(max_retries):
+        try:
+            # 2. Get total count for random offset
+            # Request size=1 to get the total number of records that match the filter.
+            params = {
+                'apikey': api_key,
+                'hasimage': 1,             # CRITICAL: Only return objects with images
+                'q': filter_set,           # The selected filter (e.g., period=...)
+                'size': 1                  
+            }
+            
+            r_count = requests.get(url, params=params, timeout=10)
+            r_count.raise_for_status()
+            
+            total_records = r_count.json().get('info', {}).get('totalrecords', 0)
+            
+            if total_records == 0:
+                # If no records are found, exit the retries immediately
+                return None, f"Harvard search found no records for filter: {filter_set}"
 
-        # 3. Simulate Randomness: Pick a random page offset
-        random_offset = random.randint(1, total_records - 1) if total_records > 1 else 0
-        
-        # 4. Fetch the final item using the offset
-        params['page'] = random_offset
-        params['size'] = 1 # Fetch exactly one item at the random page/offset
+            # 3. Simulate Randomness: Pick a random page offset
+            random_offset = random.randint(1, total_records - 1) if total_records > 1 else 0
+            
+            # 4. Fetch the final item using the offset
+            params['page'] = random_offset
+            params['size'] = 1 # Fetch exactly one item at the random page/offset
 
-        r_final = requests.get(url, params=params, timeout=10)
-        r_final.raise_for_status()
-        item = r_final.json().get('records', [{}])[0]
-        
-        # 5. Extract and format the payload
-        harvard_payload = {
-            "image_url": item.get('primaryimageurl'),
-            "title": item.get('title', 'Untitled'),
-            "artist": item.get('people', [{}])[0].get('displayname', 'Unknown Artist'),
-            "date": item.get('dated', 'Unknown Date')
-        }
-        
-        logging.info(f"DEBUG FETCH: Harvard SUCCESS for filter: {filter_set}")
-        return harvard_payload, None
+            r_final = requests.get(url, params=params, timeout=10)
+            r_final.raise_for_status()
+            item = r_final.json().get('records', [{}])[0]
+            
+            # 5. Extract and format the payload
+            harvard_payload = {
+                "image_url": item.get('primaryimageurl'),
+                "title": item.get('title', 'Untitled'),
+                "artist": item.get('people', [{}])[0].get('displayname', 'Unknown Artist'),
+                "date": item.get('dated', 'Unknown Date')
+            }
+            
+            logging.info(f"DEBUG FETCH: Harvard SUCCESS for filter: {filter_set}")
+            return harvard_payload, None # SUCCESSFUL RETURN
 
-    except Exception as e:
-        error_msg = f"Harvard API failed: {type(e).__name__}: {str(e)}"
-        logging.error(error_msg)
-        return get_fallback_quote(), error_msg
+        except Exception as e:
+            error_msg = f"Harvard API attempt {attempt + 1} failed: {type(e).__name__}"
+            logging.warning(error_msg)
+            
+            if attempt < max_retries - 1:
+                # Sleep briefly and then continue to the next attempt
+                time.sleep(retry_delay_sec)
+                continue
+            
+            # If max retries hit, return the failure
+            logging.error(f"Harvard API failed after {max_retries} attempts.")
+            return None, f"Harvard API failed: {type(e).__name__}: {str(e)}"
+            
+    # Should be unreachable
+    return None, "Unexpected Harvard API failure."
 
 
 
 def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     """Fetches a random photo from Flickr and conforms to the (content, error) tuple."""
     
-    # 💡 FIX 3: Ensure flickr_config is defined at the start 💡
     flickr_config = CFG.get('flickr') 
     
     if not flickr_config:
         error_msg = "Flickr section missing from config.yaml."
         logging.error(f"DEBUG FETCH: Flickr FAILED (Config Missing).")
-        return get_fallback_quote(), error_msg 
+        return None, error_msg 
         
     # Call the actual Flickr logic from the imported module
     photo_data = flickr.get_random_public_photo(flickr_config)
@@ -338,7 +467,7 @@ def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     if not photo_data:
         error_msg = "Failed to fetch photo from Flickr."
         logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
-        return get_fallback_quote(), error_msg 
+        return None, error_msg 
 
     # Success: return the data and no error
     logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
@@ -368,17 +497,19 @@ def get_next_type(current_type: str) -> str:
 
 def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'weather':
-        return fetch_wunderground
+        return fetch_weather_and_quote
     if content_type == 'ninjaquotes':
         return fetch_ninjaquotes
     if content_type == 'art':
         return fetch_art
     if content_type == 'flickr':
         return fetch_flickr
-    if content_type == 'harvard': # <-- NEW FUNCTION MAPPING
+    if content_type == 'harvard':
         return fetch_harvard
     if content_type == 'smithsonian':
         return fetch_smithsonian
+    if content_type == 'zenquotes':
+        return fetch_zenquotes
     return None
 
 # --- API Endpoint Handlers ---
@@ -396,51 +527,73 @@ def api_content():
         return JSONResponse({"content": _last["content"], "type": current_type, "cached": True})
 
     # 2. Determine the NEXT content type and Fetch
-    next_type = get_next_type(current_type)
-    fetch_func = get_fetch_function(next_type)
+    start_type = get_next_type(current_type)
     
-    if not fetch_func:
-        return JSONResponse({"error": f"Unknown content type: {next_type}"}, status_code=500)
+    # --- FAILOVER LOOP: Attempt to find valid content ---
+    tried_types = set()
+    next_type = start_type
+    
+    new_content = None
+    
+    while new_content is None and next_type not in tried_types:
+        fetch_func = get_fetch_function(next_type)
+        if not fetch_func:
+            tried_types.add(next_type)
+            next_type = get_next_type(next_type)
+            continue
+            
+        # Attempt to fetch content
+        new_content, err = fetch_func() 
+        
+        # Log failure and continue loop if necessary
+        if new_content is None:
+            logging.error(f"FAILOVER: Fetch failed for {next_type}. Error: {err}")
+            tried_types.add(next_type)
+            next_type = get_next_type(next_type)
+        
+        # If fetch succeeded, break the loop
+        if new_content:
+            break
+            
+    # --- 3. Final Result Handling ---
+    
+    if new_content is None:
+        # CRITICAL: If the loop finishes and nothing worked, display failure to user.
+        logging.critical("FAILOVER: All sources failed. Displaying permanent failure message.")
+        return JSONResponse({"error": "All content sources failed to load."}, status_code=503)
 
-    # 3. Fetch the new content
-    new_content, err = fetch_func() 
-    
-    # Determine the actual content type returned (will be 'quote' if a fetch fails)
-    content_type = 'quote' if isinstance(new_content, dict) and 'quote' in new_content else next_type
+    # Determine the actual content type returned (now ONLY the fetch type)
+    content_type = next_type
     
     # Log the result of the entire content cycle
-    logging.info(f"DEBUG ROTATE: Attempted {next_type}. Result: {content_type}. Error: {err}")
+    logging.info(f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}. Error: {err}")
 
-    # 4. Success / Failure
-    if new_content:
-        # Success path
-        _last.update({"content": new_content, "type": next_type, "ts": now})
-        
-        # Format output based on content type
-        if content_type == 'quote':
-            return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
-        
-        # FINAL FIX: Ensure ALL image payloads (flickr, art, smithsonian) are correctly wrapped 
-        elif content_type in ['flickr', 'art', 'smithsonian']:
-            
-            # The frontend expects {"content": {"image_url": "...", ...}, "type": "flickr"}
-            
-            return {
-                "content": new_content, 
-                "type": content_type, 
-                "cached": False
-            }
-            
-        else:
-            # Fallback for weather or other future types
-            return {"content": new_content, "type": content_type, "cached": False}
+    # 4. Success Path (Guaranteed to succeed past this point)
+    _last.update({"content": new_content, "type": next_type, "ts": now})
     
-    # 5. Failure Path (If fetch_func returned None and an error message)
-    if err:
-        return JSONResponse({"error": f"Content Fetch Failed: {err}"}, status_code=503)
-
-    # Should be unreachable
-    return JSONResponse({"error": "Content fetch failed unexpectedly."}, status_code=503)
+    # Format output based on content type
+    if content_type in ['zenquotes', 'ninjaquotes']:
+        return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
+    
+    # FINAL FIX: Ensure ALL image payloads (flickr, art, smithsonian, harvard) are correctly wrapped 
+    elif content_type in ['flickr', 'art', 'harvard', 'smithsonian']:
+        return {
+            "content": new_content, 
+            "type": content_type, 
+            "cached": False
+        }
+        
+    elif content_type == 'weather':
+        # Weather returns pure HTML content in the 'new_content' variable
+        return {
+            "content": new_content, 
+            "type": content_type, 
+            "cached": False
+        }
+        
+    else:
+        # Should be unreachable
+        return JSONResponse({"error": "Content fetch failed unexpectedly."}, status_code=503)
 
 
 @app.get("/api/theme")
@@ -449,5 +602,4 @@ def api_theme():
 
 @app.get("/api/quote")
 def redirect_old_quote_endpoint():
-    # Redirects old client requests to the new content handler
     return RedirectResponse(url="/api/content")

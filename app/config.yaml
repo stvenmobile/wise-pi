@@ -9,15 +9,14 @@ theme:
   author_font_px: 48
   max_width_px: 1500      # keep text readable on 800x480
 
+weather:
+  lat: 35.2271
+  lon: -80.8409
 
 ninjaquotes:
   api_key_env_var: "NINJA_API_KEY"
   # Categories to randomly sample from for the quote query
-  topics: ["wisdom", "philosophy", "life", "truth", "humor", "success", "courage", "happiness", "art", "nature", "freedom"]
-
-fallback_quotes:
-  - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
-  - { q: "What you do is who you are.", a: "Ben Horowitz" }
+  topics: ["wisdom", "life", "truth", "humor", "success", "courage", "happiness", "art", "nature", "freedom"]
 
 flickr:
   api_key_env_var: "FLICKR_API_KEY"
@@ -28,18 +27,17 @@ flickr:
 
 smithsonian:
   api_key_env_var: "SMITHSONIAN_API_KEY"
-  display_duration_seconds: 45
 
 harvard:
   api_key_env_var: "HARVARD_API_KEY"
-  display_duration_seconds: 45
 
 rotation:
-  sequence: ["flickr","harvard","weather","ninjaquotes","flickr","weather","harvard","ninjaquotes"] 
-  # sequence: ["weather","ninjaquotes"]
+  sequence: ["flickr","weather"]
+  # sequence: ["flickr","harvard","weather","zenquotes","flickr","smithsonian","ninjaquotes"] 
   durations_seconds:
-    weather: 60
-    ninjaquotes: 60
-    flickr: 60
-    smithsonian: 60
-    harvard: 60
+    weather: 120
+    ninjaquotes: 120
+    zenquotes: 120
+    flickr: 30
+    smithsonian: 120
+    harvard: 120
