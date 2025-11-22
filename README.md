@@ -1,36 +1,47 @@
 
 <p float="left">
-  <img src="images/dash_front2.jpg" width="48%" alt="Front">
-  <img src="images/dash_back.jpg"  width="48%" alt="Back">
+  <img src="images/rpi4_hdmi1.jpg" width="48%" alt="Front">
+  <img src="images/rpi4_hdmi2.jpg"  width="48%" alt="Back">
 </p>
 
 
 
 # Wise-Pi HDMI — Setup Guide
 
-A lightweight FastAPI web app that shows a large, readable quote on a Raspberry Pi 4 with a standard HDMI Display, running in **Chromium kiosk mode** at boot. The application will provide a sequence of displays. First it shows a five-day weather forecast, then it displays a random quote, and that is followed by display of an artwork from the Metropolitan Museum of Art (with a Title and Artist line below it). The length of time each content type remains visible is configurable, as well as which of the three content types to include in the rotation.
+A lightweight FastAPI web app hosted on raspberry Pi 4/5 that shows multiple types of content on a standard HDMI Display, 
+running in **Chromium kiosk mode** at boot. The application will provide a sequence of displays including any of the follwoing 
+content types: Zenquote random quote, Ninjaquote random quote from sel;etable categories, artwork from the Smithsonian 
+Institution, artwork from the Harvard Art Museum, or a random photo from user's Flickr account.
+The length of time each content type remains visible is configurable, as well as which of the types to include in the rotation, 
+and th eorder in which they are displayed.
 
 ---
 
 ## What you’ll need
 
-- **Raspberry Pi** (RPI 4 or RPI 5 recommended; RPI 3 or RPI Zero 2 W will work but slower)
-- *HDMI Display** (such as a PC Monitor)
-- **Raspberry Pi OS (Bookworm) 64-bit with Desktop** (Recommended for Pi 4/5)
-- Network access (Wi-Fi or Ethernet)
+- **Raspberry Pi (RPI 4 or RPI 5)**
+- **HDMI Display (PC Monitor, 7" monitor, etc.)**
+- **Raspberry Pi OS (Bookworm) 64-bit with Desktop** 
+- **Network access (Wi-Fi or Ethernet)**
 
 **Repo layout (branch `rpi4-hdmi`):**
 app/
-main.py
-requirements.txt
-config.yaml
-env.example
-static/
-index.html
-styles.css
+- requirements.txt
+- config.yaml
+- env.example
+- flickr.py
+- main.py
+- weather.py
+- static/
+  - index.htm
+  - styles.css
+autostart/
+- unclutter_desktop
+- wise-kiosk.desktop
+images/
 systemd/
-wise-pi.service 
-wise-kiosk.service
+- wise-pi.service 
+
 
 ---
 
@@ -52,7 +63,7 @@ sudo apt install -y unclutter
 ### 2) Get the code
 ```bash
 cd ~
-git clone https://github.com/<stvenmobile>/wise-pi.git
+git clone https://github.com/stvenmobile/wise-pi.git
 cd wise-pi
 git fetch --all --prune
 git switch -c rpi4-hdmi origin/rpi4-hdmi
@@ -64,10 +75,10 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-config.yaml — theme/intervals (defaults are fine)
-
-env.example — copy to .env later if you add API keys
 ```
+Review settings in config.yaml, adjust rotation to only include elements you want to include.
+Update .env with actual API keys for the content to display
+
 ### 4) Quick manual test (optional)
 ```bash
 cd ~/wise-pi/app
@@ -78,63 +89,39 @@ On the Pi: open Chromium to http://localhost:8000
 From another device: http://<pi-ip>:8000
 Stop with Ctrl+C.
 
-### 5) Install and Enable Systemd Services
+### 5) Install and Enable Systemd Service
 
-The service files in the `systemd/` directory are complete but use the placeholder username 'steve'. 
-We will copy them to the system location after fixing the username.
+The service file in the `systemd/` directory is complete but edit to replace the placeholder username 'steve'. 
+The service file enables the backend python application to run as a service.
 
 **CRITICAL: Use a text editor to globally replace ALL occurrences of 'steve' in the following two files with YOUR actual Raspberry Pi username**
 
-* `~/wise-pi/systemd/wise-pi.service`
-* `~/wise-pi/systemd/wise-kiosk.service`
 
 ```bash
 sudo cp ~/wise-pi/systemd/wise-pi.service /etc/systemd/system/
-sudo cp ~/wise-pi/systemd/wise-kiosk.service /etc/systemd/system/
 
 sudo systemctl daemon-reload
 sudo systemctl enable wise-pi.service
-sudo systemctl enable wise-kiosk.service
 sudo systemctl start wise-pi.service
-sudo systemctl start wise-kiosk.service
 sudo systemctl status wise-pi --no-pager            # status should be active
-sudo systemctl status wise-kiosk --no-pager         # status should be active
 
 curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8000/   # expect 200
 ```
 
-Tip (local-only): If you don’t want LAN devices to access the API, bind to loopback:
+Tip (local-only): If you don’t want WAN devices to access the API, bind to loopback:
 change --host 0.0.0.0 → --host 127.0.0.1 in the unit file and restart the service.
 
 
-### 6) Autostart Chromium in kiosk
+### 6) Configure Autostart to load Chromium in kiosk and unclutter desktop
 Use a desktop autostart entry to open Chromium fullscreen to the local app:
 
 ```bash
-mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/wisepi-kiosk.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=WisePi Kiosk
-Comment=Launch Chromium to the local dash
-Exec=/bin/sh -lc 'sleep 5; B=$(command -v chromium || command -v chromium-browser); exec "$B" \
-           --noerrdialogs --disable-session-crashed-bubble \
-           --disable-infobars --kiosk \
-           --user-data-dir=/tmp/kiosk-profile \
-           --password-store=basic http://localhost:8000'
-X-GNOME-Autostart-enabled=true
-EOF
+cp ~/wise-pi/autostart/unclutter.desktop ~/.config/autostart/
+cp ~/wise-pi/autostart/wisepi-kiosk.desktop ~/.config/autostart/
 ```
 
-# Instructions for hiding cursor
-If you installed unclutter and want to hide the cursor, add this to your session autostart 
-(e.g., ~/.config/lxsession/LXDE-pi/autostart):
-
-```bash
-@unclutter -idle 1 -root
-```
-Reboot to confirm kiosk mode.
-
+Reboot and access the app URL to confirm kiosk mode.
+http://<RPI IP ADDRESS>:8000
 
 ## Troubleshooting
 Kiosk didn’t launch at login
@@ -143,12 +130,10 @@ Verify both services are enabled and started successfully
 ```bash
 sudo systemctl status wise-pi
 sudo systemctl status wise-kiosk
-Confirm Chromium exists (chromium or chromium-browser)
-Try manually:
-
-```bash
-chromium --kiosk http://localhost:8000    # or chromium-browser
 ```
+
+Try manually:
+chromium --kiosk http://localhost:8000    # or chromium-browser
 
 API not running
 
@@ -158,19 +143,12 @@ journalctl -u wise-pi -n 200 --no-pager
 curl -I http://localhost:8000/
 ```
 
-No quotes / errors on screen
 
-Check connectivity:
-
-```bash
-ping -c 2 8.8.8.8
-ping -c 2 zenquotes.io
-```
 
 ## Roadmap ideas
-Day/Night themes (light/dark schedule)
-Settings page: font size, refresh interval, theme
-Offline cache for quotes
+Dark/Light themes 
+Add Calendar content
+Other content
 
 ## License
 MIT (see repository root).

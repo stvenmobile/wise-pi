@@ -88,6 +88,24 @@ html, body, #app {
     margin: 20px 0;
 }
 
+/* 6. Art/Flickr Image Mode Styling --- */
+
+/* Base Container (Applies to all image types) */
+#art-display {
+    display: flex;
+    flex-direction: column; /* CRITICAL: Force contents to stack vertically */
+    align-items: center;
+    justify-content: center;
+    width: 99%;
+    min-height: 95vh;
+}
+
+/* --- 5A. FLICKR MODE (HIDES METADATA, MAXIMIZES IMAGE) --- */
+#art-display.flickr-mode #art-image {
+    /* Old: max-height: 90vh; */
+    max-height: 80vh;  
+}
+
 #main-icon-container { margin-right: 15px; }
 
 #main-text { 

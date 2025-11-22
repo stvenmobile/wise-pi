@@ -72,10 +72,7 @@
       // Control visibility for all modes
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
       document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
-      
-      // 💡 NEW: Control Dual-Panel Weather Display 💡
       document.getElementById('weather-display').style.display = (mode === 'weather') ? 'flex' : 'none';
-
 
       // Reset image classes before setting new mode
       document.getElementById('art-display').classList.remove('flickr-mode', 'rich-mode');
@@ -106,7 +103,7 @@
       const weatherQuoteEl = document.getElementById("weather-quote");
       const weatherAuthorEl = document.getElementById("weather-author");
 
-      // Initial state reset
+      // Initial state reset (Clearing any previous error messages)
       quoteEl.textContent = "Loading...";
       authorEl.textContent = "Please wait...";
       
@@ -116,7 +113,9 @@
         
         if (!r.ok) {
             const errorData = await r.json();
-            throw new Error(errorData.error || `API returned status ${r.status}`);
+            // Log the error but don't display it to the user.
+            console.error("API Error Response:", errorData.error || `API returned status ${r.status}`);
+            throw new Error("API call failed."); // Throw generic error to hit catch block
         }
 
         const j = await r.json();
@@ -129,10 +128,12 @@
             setDisplayMode('quote');
             
             // Access properties directly (no j.content wrapper for quotes)
-            if (j.quote) { 
-                quoteEl.textContent = "“" + j.quote + "”";
-                authorEl.textContent = "— " + j.author;
+            if (content && content.quote) { 
+                quoteEl.textContent = "“" + content.quote + "”";
+                authorEl.textContent = "— " + content.author;
             } else {
+                // If content is empty/malformed, this is the final local fallback
+                console.warn("Quote fetch succeeded but content was empty/malformed.");
                 quoteEl.textContent = "“Content fetch failed.”";
                 authorEl.textContent = "— Check logs for API error";
             }
@@ -147,7 +148,6 @@
 
             
             // 1. Render Current Weather and Forecast
-            // 💡 FIX: Check the forecast array directly 💡
             if (Array.isArray(forecast) && forecast.length > 0) {
                 const today = forecast[0];
                 
@@ -155,12 +155,13 @@
                 iconContainerEl.innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
                 currentTextEl.textContent = `${Math.round(today.temp)}°F`; 
                 
+                // Final corrected sub-text HTML
                 subTextEl.innerHTML = `
                     ${today.desc.toUpperCase()} 
                     <span class="weather-metrics">
-                        ${"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"}Press: ${current.pressure}hPa 
-                        ${"&nbsp;&nbsp;&nbsp;&nbsp;"}Hum: ${current.humidity}%
-                    </span>              
+                        Press: ${current.pressure}hPa 
+                        Hum: ${current.humidity}%
+                    </span>
                 `;
 
                 // 5-Day Grid
@@ -180,8 +181,10 @@
                 });
                 
             } else {
-                currentTextEl.textContent = "Weather data unavailable.";
-                subTextEl.textContent = "Empty forecast array.";
+                // Should not happen if backend handles failures correctly, but safe fallback
+                setDisplayMode('quote');
+                quoteEl.textContent = "Weather data unavailable.";
+                authorEl.textContent = "Check service logs.";
             }
             
             // 2. Render Quote
@@ -206,6 +209,7 @@
                 artArtistEl.textContent = (imageContent.artist || imageContent.date) ? 
                     `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
             } else {
+                // If content is empty/malformed, this is the final local fallback
                 setDisplayMode('quote');
                 quoteEl.textContent = "Rich Art fetch failed.";
                 authorEl.textContent = "Check service logs for API error details.";
@@ -221,20 +225,24 @@
                 artTitleEl.textContent = ""; 
                 artArtistEl.textContent = ""; 
             } else {
+                // If content is empty/malformed, this is the final local fallback
                 setDisplayMode('quote');
                 quoteEl.textContent = "Flickr fetch failed.";
                 authorEl.textContent = "Check service logs for API error details.";
             }
         
         } else {
-          // Fallback
+          // If the backend sends an unknown type, log it and use fallback quote display
+          console.error(`Received unknown content type: ${j.type}`);
           setDisplayMode('quote');
           quoteEl.textContent = "Error: Unexpected data format.";
           authorEl.textContent = `Type "${j.type}" was not recognized.`;
         }
 
       } catch (e) {
-        // Network or API failure 
+        // --- FINAL GLOBAL FAILURE CATCH ---
+        // If a network error occurs or JSON is invalid, log it and display general error quote.
+        console.error("Global fetch error:", e);
         setDisplayMode('quote');
         quoteEl.textContent = "Application Error";
         authorEl.textContent = e.message || "Check service logs.";

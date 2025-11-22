@@ -32,12 +32,11 @@ harvard:
   api_key_env_var: "HARVARD_API_KEY"
 
 rotation:
-  sequence: ["flickr","weather"]
-  # sequence: ["flickr","harvard","weather","zenquotes","flickr","smithsonian","ninjaquotes"] 
+  sequence: ["flickr","harvard","weather","flickr","smithsonian","ninjaquotes","harvard","zenquotes"] 
   durations_seconds:
     weather: 120
     ninjaquotes: 120
     zenquotes: 120
-    flickr: 30
+    flickr: 120
     smithsonian: 120
     harvard: 120
