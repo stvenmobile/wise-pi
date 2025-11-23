@@ -6,6 +6,8 @@
     --quote-size: 64px;  /* Final Large Quote Size */
     --author-size: 40px; /* Final Author Size */
     --maxw: 1500px; 
+    
+    /* Weather Specific Variables */
     --weather-main-size: 80px; 
     --weather-sub-size: 24px;  
     --weather-grid-size: 18px; 
@@ -36,7 +38,11 @@ html, body, #app {
     justify-content: center; 
 }
 
-/* --- 3. Quote Display (Standard) --- */
+/* ---------------------------------------------------- */
+/* --- 3. QUOTE & ART (Standard & Image Displays) --- */
+/* ---------------------------------------------------- */
+
+/* Standard Quote Display */
 #quote-display {
     display: none; 
     flex-direction: column; 
@@ -65,45 +71,81 @@ html, body, #app {
     margin-top: 20px;
 }
 
-/* --- 4. DUAL-PANEL WEATHER MODE STYLING --- */
-#weather-display {
-    display: none; 
-    flex-direction: column;
-    width: 100%;
-    min-height: 90vh; 
-    align-items: center;
-    justify-content: space-around; 
-    padding: 20px 0;
-}
-
-/* 5A. Current Weather Panel (Top) */
-#current-weather-panel {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    width: 90%;
-    border-top: 1px solid var(--fg); 
-    padding-top: 20px; 
-    margin: 20px 0;
-}
-
-/* 6. Art/Flickr Image Mode Styling --- */
-
-/* Base Container (Applies to all image types) */
+/* Art/Flickr Image Display Base */
 #art-display {
     display: flex;
-    flex-direction: column; /* CRITICAL: Force contents to stack vertically */
+    flex-direction: column; 
     align-items: center;
     justify-content: center;
     width: 99%;
     min-height: 95vh;
 }
 
-/* --- 5A. FLICKR MODE (HIDES METADATA, MAXIMIZES IMAGE) --- */
+#art-image {
+    max-width: 99%;    
+    object-fit: contain; 
+    margin-bottom: 10px;
+}
+
+/* --- Image Metadata / Rich Mode Styling --- */
+
 #art-display.flickr-mode #art-image {
-    /* Old: max-height: 90vh; */
-    max-height: 80vh;  
+    max-height: 80vh; /* Maximized vertical space for Flickr */
+}
+
+#art-display.flickr-mode #art-title,
+#art-display.flickr-mode #art-artist {
+    display: none; 
+}
+
+#art-display.rich-mode #art-image {
+    max-height: 85vh; /* Leaves room for text footer */
+}
+
+#art-title {
+    font-size: 24px; 
+    text-align: center;
+    margin-top: 10px;
+}
+
+#art-artist {
+    font-size: 18px; 
+    font-weight: 300;
+    text-align: center;
+}
+
+/* ---------------------------------------------------- */
+/* --- 4. DUAL-PANEL WEATHER STYLING --- */
+/* ---------------------------------------------------- */
+
+/* Main Wrapper for Dual Display (Splits screen vertically) */
+#weather-display {
+    display: none; /* Controlled by JS */
+    flex-direction: column;
+    width: 100%;
+    min-height: 90vh; /* Overall height of weather block */
+    align-items: center;
+    justify-content: space-around; 
+}
+
+/* 4A. Current Weather Panel (Icon, Temp, Metrics) */
+#current-weather-panel {
+    display: flex;
+    flex-direction: column; /* Stack weather components vertically */
+    align-items: center;
+    width: 100%;
+    
+    /* This panel now takes up the top half of the screen */
+    margin-bottom: 5px; 
+}
+
+/* The 75°F line */
+#current-display {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    width: 90%;
+    margin: 20px 0;
 }
 
 #main-icon-container { margin-right: 15px; }
@@ -115,62 +157,35 @@ html, body, #app {
 
 #sub-text {
     font-size: var(--weather-sub-size);
-    display: flex; /* Makes description and metrics line up */
+    display: flex; 
     align-items: baseline;
 }
 
-/* 5B. Quote Panel (Middle) */
-#weather-quote-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    width: 80%;
-    
-    /* FIX: Separator for Quote/Weather */
-    border-top: 1px solid var(--fg); 
-    padding-top: 35px; 
-    margin: 30px 0;
-}
-
-#weather-quote { 
-    font-size: var(--quote-size); /* FINAL LARGE QUOTE SIZE */
-    margin-bottom: 5px; 
-}
-
-#weather-author { 
-    font-size: var(--author-size); /* FINAL AUTHOR SIZE (Smaller than quote) */
-    font-weight: 300;
-    margin-top: 5px;
-}
-
-/* --- New: Styles for Pressure and Humidity details --- */
+/* Pressure/Humidity Separator (No border-left here) */
 .weather-metrics {
     font-size: 0.8em; 
     font-weight: 300;
-    /* Spacing: Separates description from metrics */
     padding-left: 25px; 
     margin-left: 10px; 
     padding-right: 10px; 
 }
 
 
-/* 5C. Forecast Grid (Bottom) */
+/* 4B. Forecast Grid (Directly under current weather) */
 #forecast-grid {
-    /* CRITICAL FIX: Forces horizontal alignment */
     display: flex; 
     flex-direction: row; 
     justify-content: space-around; 
-    align-items: flex-start; 
-    
     width: 95%; 
-    padding-top: 20px;
-    margin-top: 10px;
+    
+    /* CRITICAL FIX: Space between forecast icons and the dividing line */
+    margin-top: 5px; 
+    padding-top: 0;
 }
 
-/* Individual item layout (6 items total) */
+/* Individual item layout */
 .forecast-item {
-    width: 15%; /* 6 items * 15% = 90% width */
+    width: 15%; 
     display: flex;
     flex-direction: column; 
     align-items: center;
@@ -178,22 +193,29 @@ html, body, #app {
     padding: 10px 0;
 }
 
-/* ... (rest of forecast styles) ... */
 
-.weather-icon {
-    width: 70px;  
-    height: 70px;
+/* 4C. Quote Panel (Bottom Half) */
+#weather-quote-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 80%;
+    
+    /* 💡 FIX: Moves the line up and controls the margin between the line and the quote 💡 */
+    border-top: 1px solid var(--fg); 
+    padding-top: 40px; /* Space *inside* the panel, above the quote */
+    
+    margin: 5px 0 30px 0; /* Margin-top of 5px reduces gap from forecast */
 }
 
-.forecast-day {
-    font-size: var(--weather-grid-size);
-    font-weight: bold;
-    margin-bottom: 5px;
+#weather-quote { 
+    font-size: var(--quote-size); 
+    margin-bottom: 5px; 
 }
 
-.forecast-temp {
-    font-size: 24px; 
-    font-weight: lighter;
+#weather-author { 
+    font-size: 20px; 
+    font-weight: 300;
     margin-top: 5px;
 }
-/* --- End of Styles.css --- */

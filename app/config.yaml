@@ -33,7 +33,8 @@ harvard:
 
 rotation:
   sequence: ["flickr","harvard","weather","flickr","smithsonian","ninjaquotes","harvard","zenquotes"] 
-  durations_seconds:
+  # sequence: ["flickr ","weather"] 
+durations_seconds:
     weather: 120
     ninjaquotes: 120
     zenquotes: 120

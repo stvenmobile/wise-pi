@@ -47,7 +47,7 @@
     let theme = {
       bg: "#000", fg: "#fff",
       font_family: "system-ui, sans-serif",
-      quote_font_px: 20, author_px: 12, max_width_px: 400
+      quote_font_px: 20, author_font_px: 12, max_width_px: 400
     };
     
     // --- Helper Functions ---
@@ -60,7 +60,10 @@
       document.documentElement.style.setProperty("--fg", theme.fg);
       document.documentElement.style.setProperty("--font", theme.font_family);
       document.documentElement.style.setProperty("--quote-size", theme.quote_font_px + "px");
-      document.documentElement.style.setProperty("--author-size", theme.author_px + "px");
+      
+      // 💡 CRITICAL FIX: Changed theme.author_px to theme.author_font_px 💡
+      document.documentElement.style.setProperty("--author-size", theme.author_font_px + "px");
+      
       document.documentElement.style.setProperty("--maxw", theme.max_width_px + "px");
     }
 
@@ -72,6 +75,8 @@
       // Control visibility for all modes
       document.getElementById('quote-display').style.display = (mode === 'quote') ? 'flex' : 'none';
       document.getElementById('art-display').style.display = (mode === 'art' || mode === 'flickr' || mode === 'harvard' || mode === 'smithsonian') ? 'flex' : 'none';
+      
+      // Control Dual-Panel Weather Display
       document.getElementById('weather-display').style.display = (mode === 'weather') ? 'flex' : 'none';
 
       // Reset image classes before setting new mode
@@ -95,7 +100,7 @@
       const artTitleEl = document.getElementById("art-title");
       const artArtistEl = document.getElementById("art-artist");
 
-      // Weather elements (NEW DUAL-PANEL TARGETS)
+      // Weather elements (DUAL-PANEL TARGETS)
       const currentTextEl = document.getElementById("main-text");
       const subTextEl = document.getElementById("sub-text");
       const iconContainerEl = document.getElementById("main-icon-container");
@@ -142,9 +147,10 @@
             // --- DUAL-PANEL WEATHER/QUOTE MODE ---
             setDisplayMode('weather');
             
-            const weatherData = content.weather; // The {forecast: [...], current: {...}} object
-            const forecast = weatherData.forecast; // Array of 5-day forecast
-            const current = weatherData.current;   // Pressure/humidity object
+            const weatherData = content.weather; 
+            const forecast = weatherData.forecast; 
+            const current = weatherData.current;   
+            const quoteData = content.quote;
 
             
             // 1. Render Current Weather and Forecast
@@ -166,7 +172,7 @@
 
                 // 5-Day Grid
                 forecastGridEl.innerHTML = "";
-                forecast.forEach((day, index) => {
+                weatherData.forecast.forEach((day, index) => { // Use weatherData.forecast to iterate
                     const date = new Date(day.day);
                     const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
                     
@@ -181,14 +187,11 @@
                 });
                 
             } else {
-                // Should not happen if backend handles failures correctly, but safe fallback
-                setDisplayMode('quote');
-                quoteEl.textContent = "Weather data unavailable.";
-                authorEl.textContent = "Check service logs.";
+                currentTextEl.textContent = "Weather data unavailable.";
+                subTextEl.textContent = "Empty forecast array.";
             }
             
             // 2. Render Quote
-            const quoteData = content.quote;
             if (quoteData && quoteData.quote) {
                 weatherQuoteEl.textContent = "“" + quoteData.quote + "”";
                 weatherAuthorEl.textContent = "— " + quoteData.author;
@@ -232,7 +235,7 @@
             }
         
         } else {
-          // If the backend sends an unknown type, log it and use fallback quote display
+          // If the backend sends an unknown type, log it only
           console.error(`Received unknown content type: ${j.type}`);
           setDisplayMode('quote');
           quoteEl.textContent = "Error: Unexpected data format.";
@@ -241,7 +244,7 @@
 
       } catch (e) {
         // --- FINAL GLOBAL FAILURE CATCH ---
-        // If a network error occurs or JSON is invalid, log it and display general error quote.
+        // If a network error occurs or JSON is invalid, log it only
         console.error("Global fetch error:", e);
         setDisplayMode('quote');
         quoteEl.textContent = "Application Error";
