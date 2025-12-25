@@ -59,7 +59,7 @@ def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
 
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
     
-    max_retries = 3
+    max_retries = 2
     retry_delay_sec = 1 
     
     for attempt in range(max_retries):
@@ -147,7 +147,7 @@ def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     
     # ZenQuotes requires no API key or specific configuration
     url = "https://zenquotes.io/api/random"
-    max_retries = 3
+    max_retries = 2
     timeout_sec = 12
 
     for attempt in range(max_retries):
@@ -206,7 +206,7 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" 
     headers = {'X-Api-Key': api_key}    
     
-    max_retries = 3
+    max_retries = 2
     timeout_sec = 12
     status_code = None
 
@@ -367,38 +367,31 @@ def fetch_smithsonian() -> Tuple[Union[Dict, None], Union[str, None]]:
 
 
 def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
+    """Fetches Harvard Art. Allows 1 retry before failing over."""
     cfg_harvard = CFG.get("harvard", {})
     api_key = os.environ.get(cfg_harvard.get("api_key_env_var"))
 
     if not api_key:
         return None, "Missing Harvard API Key (ENV)."
 
-    # Define specific filters targeting your desired content
     filters = [
         "classification:Paintings&period=Edo+Period", 
         "classification:Drawings&period=Meiji+Period",
         "period=Impressionism",
         "style=Post-Impressionism"
     ]
-    
-    # Randomly select one filter set
     filter_set = random.choice(filters)
-    
-    # 1. Base URL for Object Search
     url = "https://api.harvardartmuseums.org/object"
 
-    max_retries = 3
-    retry_delay_sec = 1 
+    max_retries = 2
     
-    # 庁 PRIMARY RETRY LOOP 庁
     for attempt in range(max_retries):
         try:
-            # 2. Get total count for random offset
-            # Request size=1 to get the total number of records that match the filter.
+            # 1. Get total count
             params = {
                 'apikey': api_key,
-                'hasimage': 1,             # CRITICAL: Only return objects with images
-                'q': filter_set,           # The selected filter (e.g., period=...)
+                'hasimage': 1,
+                'q': filter_set,
                 'size': 1                  
             }
             
@@ -408,46 +401,46 @@ def fetch_harvard() -> Tuple[Union[Dict, None], Union[str, None]]:
             total_records = r_count.json().get('info', {}).get('totalrecords', 0)
             
             if total_records == 0:
-                # If no records are found, exit the retries immediately
                 return None, f"Harvard search found no records for filter: {filter_set}"
 
-            # 3. Simulate Randomness: Pick a random page offset
+            # 2. Fetch random item
             random_offset = random.randint(1, total_records - 1) if total_records > 1 else 0
-            
-            # 4. Fetch the final item using the offset
             params['page'] = random_offset
-            params['size'] = 1 # Fetch exactly one item at the random page/offset
+            params['size'] = 1 
 
             r_final = requests.get(url, params=params, timeout=10)
             r_final.raise_for_status()
             item = r_final.json().get('records', [{}])[0]
             
-            # 5. Extract and format the payload
+            # --- CRITICAL FIX START ---
+            image_url = item.get('primaryimageurl')
+            if not image_url:
+                # If the API promised an image but didn't give one, treat as failure
+                raise ValueError("Item returned no primaryimageurl")
+            
             harvard_payload = {
-                "image_url": item.get('primaryimageurl'),
+                "image_url": image_url,
                 "title": item.get('title', 'Untitled'),
                 "artist": item.get('people', [{}])[0].get('displayname', 'Unknown Artist'),
                 "date": item.get('dated', 'Unknown Date')
             }
+            # --- CRITICAL FIX END ---
             
             logging.info(f"DEBUG FETCH: Harvard SUCCESS for filter: {filter_set}")
-            return harvard_payload, None # SUCCESSFUL RETURN
+            return harvard_payload, None 
 
         except Exception as e:
-            error_msg = f"Harvard API attempt {attempt + 1} failed: {type(e).__name__}"
-            logging.warning(error_msg)
-            
             if attempt < max_retries - 1:
-                # Sleep briefly and then continue to the next attempt
-                time.sleep(retry_delay_sec)
+                logging.warning(f"Harvard attempt {attempt+1} failed. Retrying...")
+                time.sleep(1)
                 continue
             
-            # If max retries hit, return the failure
-            logging.error(f"Harvard API failed after {max_retries} attempts.")
-            return None, f"Harvard API failed: {type(e).__name__}: {str(e)}"
+            error_msg = f"Harvard API failed after {max_retries} attempts: {type(e).__name__}"
+            logging.error(error_msg)
+            return None, error_msg
             
-    # Should be unreachable
     return None, "Unexpected Harvard API failure."
+
 
 
 
@@ -457,22 +450,19 @@ def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
     flickr_config = CFG.get('flickr') 
     
     if not flickr_config:
-        error_msg = "Flickr section missing from config.yaml."
-        logging.error(f"DEBUG FETCH: Flickr FAILED (Config Missing).")
-        return None, error_msg 
+        return None, "Flickr section missing from config.yaml."
         
-    # Call the actual Flickr logic from the imported module
     photo_data = flickr.get_random_public_photo(flickr_config)
 
-    if not photo_data:
-        error_msg = "Failed to fetch photo from Flickr."
-        logging.error(f"DEBUG FETCH: Flickr FAILED (API Fail).")
+    # --- CRITICAL FIX START ---
+    if not photo_data or not photo_data.get("url"):
+        error_msg = "Failed to fetch photo from Flickr (Empty Data or Missing URL)."
+        logging.error(f"DEBUG FETCH: Flickr FAILED: {error_msg}")
         return None, error_msg 
+    # --- CRITICAL FIX END ---
 
-    # Success: return the data and no error
     logging.info(f"DEBUG FETCH: Flickr SUCCESS.")
     
-    # Explicitly build the final structure with image_url and required metadata
     return {
         "image_url": photo_data.get("url"), 
         "title": photo_data.get("title", ""),

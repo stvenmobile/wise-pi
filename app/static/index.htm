@@ -90,167 +90,109 @@
     }
 
     // --- Main Content Loader ---
-    async function loadContent() {
-      // Quote/Author elements
-      const quoteEl = document.getElementById("quote");
-      const authorEl = document.getElementById("author");
-      
-      // Art elements
-      const artImageEl = document.getElementById("art-image");
-      const artTitleEl = document.getElementById("art-title");
-      const artArtistEl = document.getElementById("art-artist");
-
-      // Weather elements (DUAL-PANEL TARGETS)
-      const currentTextEl = document.getElementById("main-text");
-      const subTextEl = document.getElementById("sub-text");
-      const iconContainerEl = document.getElementById("main-icon-container");
-      const forecastGridEl = document.getElementById("forecast-grid");
-      const weatherQuoteEl = document.getElementById("weather-quote");
-      const weatherAuthorEl = document.getElementById("weather-author");
-
-      // Initial state reset (Clearing any previous error messages)
-      quoteEl.textContent = "Loading...";
-      authorEl.textContent = "Please wait...";
+async function loadContent() {
+      // 1. "Loading..." text lines removed so the screen persists previous content.
       
       try {
         const fetchUrl = "/api/content"; 
         const r = await fetch(fetchUrl); 
         
         if (!r.ok) {
-            const errorData = await r.json();
-            // Log the error but don't display it to the user.
-            console.error("API Error Response:", errorData.error || `API returned status ${r.status}`);
-            throw new Error("API call failed."); // Throw generic error to hit catch block
+            // Silent Retry: HTTP Error
+            setTimeout(loadContent, 2000);
+            return;
         }
 
         const j = await r.json();
-        const content = j.content; // The fetched content payload
-
-        // --- LOGIC SPLIT: QUOTE VS. WEATHER VS. IMAGE ---
+        const content = j.content;
 
         if (j.type === 'quote' || j.type === 'zenquotes' || j.type === 'ninjaquotes') {
-            // --- STANDARD QUOTE MODE ---
             setDisplayMode('quote');
-            
-            // Access properties directly (no j.content wrapper for quotes)
             if (content && content.quote) { 
+                const quoteEl = document.getElementById("quote");
+                const authorEl = document.getElementById("author");
                 quoteEl.textContent = "“" + content.quote + "”";
                 authorEl.textContent = "— " + content.author;
             } else {
-                // If content is empty/malformed, this is the final local fallback
-                console.warn("Quote fetch succeeded but content was empty/malformed.");
-                quoteEl.textContent = "“Content fetch failed.”";
-                authorEl.textContent = "— Check logs for API error";
+                // Silent Retry: Empty Quote
+                setTimeout(loadContent, 2000);
+                return;
             }
 
         } else if (j.type === 'weather') {
-            // --- DUAL-PANEL WEATHER/QUOTE MODE ---
             setDisplayMode('weather');
-            
             const weatherData = content.weather; 
             const forecast = weatherData.forecast; 
             const current = weatherData.current;   
             const quoteData = content.quote;
-
             
-            // 1. Render Current Weather and Forecast
+            // Render Weather (Existing logic)
             if (Array.isArray(forecast) && forecast.length > 0) {
                 const today = forecast[0];
-                
-                // Current Display 
-                iconContainerEl.innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
-                currentTextEl.textContent = `${Math.round(today.temp)}°F`; 
-                
-                // Final corrected sub-text HTML
-                subTextEl.innerHTML = `
-                    ${today.desc.toUpperCase()} 
-                    <span class="weather-metrics">
-                        Press: ${current.pressure}hPa 
-                        Hum: ${current.humidity}%
-                    </span>
-                `;
+                document.getElementById("main-icon-container").innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
+                document.getElementById("main-text").textContent = `${Math.round(today.temp)}°F`; 
+                document.getElementById("sub-text").innerHTML = `${today.desc.toUpperCase()} <span class="weather-metrics">Press: ${current.pressure}hPa Hum: ${current.humidity}%</span>`;
 
-                // 5-Day Grid
+                const forecastGridEl = document.getElementById("forecast-grid");
                 forecastGridEl.innerHTML = "";
-                weatherData.forecast.forEach((day, index) => { // Use weatherData.forecast to iterate
+                weatherData.forecast.forEach((day, index) => {
                     const date = new Date(day.day);
                     const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
-                    
                     const item = document.createElement('div');
                     item.className = 'forecast-item';
-                    item.innerHTML = `
-                        <div class="forecast-day">${dayString.toUpperCase()}</div>
-                        <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}">
-                        <div class="forecast-temp">${Math.round(day.temp)}°F</div>
-                    `;
+                    item.innerHTML = `<div class="forecast-day">${dayString.toUpperCase()}</div><img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}"><div class="forecast-temp">${Math.round(day.temp)}°F</div>`;
                     forecastGridEl.appendChild(item);
                 });
-                
-            } else {
-                currentTextEl.textContent = "Weather data unavailable.";
-                subTextEl.textContent = "Empty forecast array.";
             }
             
-            // 2. Render Quote
+            // Render Quote
             if (quoteData && quoteData.quote) {
-                weatherQuoteEl.textContent = "“" + quoteData.quote + "”";
-                weatherAuthorEl.textContent = "— " + quoteData.author;
-            } else {
-                weatherQuoteEl.textContent = "Quote failed.";
-                weatherAuthorEl.textContent = "";
+                document.getElementById("weather-quote").textContent = "“" + quoteData.quote + "”";
+                document.getElementById("weather-author").textContent = "— " + quoteData.author;
             }
 
-
         } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian') {
-            // --- RICH METADATA IMAGE MODE (Met, Harvard, Smithsonian) ---
             setDisplayMode(j.type); 
             const imageContent = j.content;
             
             if (imageContent && imageContent.image_url) {
-                artImageEl.src = imageContent.image_url;
-                artTitleEl.textContent = imageContent.title || "";
-                artArtistEl.textContent = (imageContent.artist || imageContent.date) ? 
+                document.getElementById("art-image").src = imageContent.image_url;
+                document.getElementById("art-title").textContent = imageContent.title || "";
+                document.getElementById("art-artist").textContent = (imageContent.artist || imageContent.date) ? 
                     `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
             } else {
-                // If content is empty/malformed, this is the final local fallback
-                setDisplayMode('quote');
-                quoteEl.textContent = "Rich Art fetch failed.";
-                authorEl.textContent = "Check service logs for API error details.";
+                // Silent Retry: Rich Art missing URL
+                setTimeout(loadContent, 2000);
+                return; 
             }
 
         } else if (j.type === 'flickr') {
-            // --- FLICKR IMAGE MODE (Simplified URL Only) ---
             setDisplayMode(j.type); 
             const imageContent = j.content;
             
             if (imageContent && imageContent.image_url) {
-                artImageEl.src = imageContent.image_url;
-                artTitleEl.textContent = ""; 
-                artArtistEl.textContent = ""; 
+                document.getElementById("art-image").src = imageContent.image_url;
+                document.getElementById("art-title").textContent = ""; 
+                document.getElementById("art-artist").textContent = ""; 
             } else {
-                // If content is empty/malformed, this is the final local fallback
-                setDisplayMode('quote');
-                quoteEl.textContent = "Flickr fetch failed.";
-                authorEl.textContent = "Check service logs for API error details.";
+                // Silent Retry: Flickr missing URL
+                setTimeout(loadContent, 2000);
+                return;
             }
         
         } else {
-          // If the backend sends an unknown type, log it only
-          console.error(`Received unknown content type: ${j.type}`);
-          setDisplayMode('quote');
-          quoteEl.textContent = "Error: Unexpected data format.";
-          authorEl.textContent = `Type "${j.type}" was not recognized.`;
+          // Silent Retry: Unknown Type
+          setTimeout(loadContent, 2000);
+          return;
         }
 
       } catch (e) {
-        // --- FINAL GLOBAL FAILURE CATCH ---
-        // If a network error occurs or JSON is invalid, log it only
-        console.error("Global fetch error:", e);
-        setDisplayMode('quote');
-        quoteEl.textContent = "Application Error";
-        authorEl.textContent = e.message || "Check service logs.";
+        // Silent Retry: Network/JSON Global Failure
+        setTimeout(loadContent, 2000);
       }
     }
+
+
 
     async function boot() {
       await loadTheme();
