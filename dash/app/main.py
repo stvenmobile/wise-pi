@@ -86,9 +86,10 @@ def fetch_weather():
     return None, "Unexpected failure."
 
 
+
 def fetch_quote():
     url = "https://zenquotes.io/api/random"
-    max_retries = 2 # Initial + 1 Retry
+    max_retries = 2
     timeout_sec = 12
 
     for attempt in range(max_retries):
@@ -96,8 +97,14 @@ def fetch_quote():
             r = requests.get(url, timeout=timeout_sec)
             r.raise_for_status() 
             data = r.json()
+            
+            # Check if the quote text ('q') is actually present and not empty
+            if not data or not data[0].get('q'):
+                raise ValueError("Empty quote data received")
+
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Quote SUCCESS.")
             return {"quote": data[0]["q"], "author": data[0]["a"]}, None
+            
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(0.5)
@@ -108,6 +115,7 @@ def fetch_quote():
             return None, error_msg
             
     return None, "Unexpected failure."
+
 
 
 def fetch_art():
