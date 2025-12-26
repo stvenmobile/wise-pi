@@ -117,6 +117,60 @@ def fetch_quote():
     return None, "Unexpected failure."
 
 
+def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
+    """Fetches a random quote from API Ninjas with strict validation."""
+    
+    cfg_ninja = CFG.get("ninjaquotes", {})
+    api_key = os.environ.get(cfg_ninja.get("api_key_env_var")) 
+    topics = cfg_ninja.get("topics", [])
+    
+    if not api_key:
+        # Return None to trigger failover to next source
+        return None, "Missing Ninja API Key (ENV)."
+    
+    if not topics:
+        return None, "Missing Topics in config."
+
+    topic = random.choice(topics)
+    encoded_topic = quote_plus(topic)
+
+    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" 
+    headers = {'X-Api-Key': api_key}    
+    
+    max_retries = 2
+    timeout_sec = 12
+
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout_sec)
+            r.raise_for_status() 
+            data = r.json()
+            
+            # API Ninjas returns a list. If list is empty or quote key is missing, fail.
+            if not data or not isinstance(data, list) or not data[0].get('quote'):
+                 # Treat as a failure so we can retry or move to next source
+                 raise ValueError(f"Ninja API returned empty/malformed data for: {topic}")
+                 
+            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
+            
+            # Use .get() for author to prevent KeyErrors if field is missing
+            return {
+                "quote": data[0].get("quote"), 
+                "author": data[0].get("author", "Unknown")
+            }, None
+        
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logging.warning(f"Ninja attempt {attempt+1} failed. Retrying...")
+                time.sleep(0.5)
+                continue
+
+            error_msg = f"Ninja API failed after {max_retries} attempts: {str(e)}"
+            logging.error(error_msg)
+            return None, error_msg
+            
+    return None, "Unexpected failure after maximum retries."
+
 
 def fetch_art():
     MET_SEARCH_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search"
@@ -193,6 +247,8 @@ def get_fetch_function(content_type):
         return fetch_weather
     if content_type == 'quote':
         return fetch_quote
+    if content_type == 'ninjaquotes':
+        return fetch_ninjaquotes
     if content_type == 'art':
         return fetch_art
     return None

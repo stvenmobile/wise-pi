@@ -13,6 +13,11 @@ fallback_quotes:
   - { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" }
   - { q: "What you do is who you are.", a: "Ben Horowitz" }
 
+ninjaquotes:
+  api_key_env_var: "NINJA_API_KEY"
+  # Categories to randomly sample from for the quote query
+  topics: ["wisdom", "life", "truth", "humor", "success", "courage", "happiness", "art", "nature", "freedom"]
+
 weather:
   # The API key is now loaded from the OPENWEATHER_API_KEY environment variable.
   lat: 35.2216 
@@ -21,8 +26,9 @@ weather:
   quote_interval: 5
 
 rotation:
-  sequence: ["quote", "quote", "weather", "quote", "quote"]
+  sequence: ["ninjaquotes", "quote", "weather", "ninjaquotes", "quote", "weather"]
   durations_seconds:
     weather: 300
     quote: 1800
+    ninjaquotes: 1800
     art: 1200

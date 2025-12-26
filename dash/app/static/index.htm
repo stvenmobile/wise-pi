@@ -70,18 +70,6 @@
 
 // --- Main Content Loader ---
     async function loadContent() {
-      // REMOVED: "Loading..." text to prevent screen flashing during retries.
-      
-      const quoteEl = document.getElementById("quote");
-      const authorEl = document.getElementById("author");
-      const artImageEl = document.getElementById("art-image");
-      const artTitleEl = document.getElementById("art-title");
-      const artArtistEl = document.getElementById("art-artist");
-      const mainEl = document.getElementById("main-text");
-      const subEl = document.getElementById("sub-text");
-      const iconContainerEl = document.getElementById("main-icon-container");
-      const gridEl = document.getElementById("forecast-grid");
-
       try {
         const fetchUrl = "/api/content"; 
         const r = await fetch(fetchUrl); 
@@ -94,77 +82,93 @@
 
         const j = await r.json();
 
-
-	if (j.type === 'quote') {
-            // --- QUOTE MODE ---
+        // 1. Handle Quotes (ZenQuotes, NinjaQuotes)
+        if (j.type === 'quote' || j.type === 'zenquotes' || j.type === 'ninjaquotes') {
+            // Backend might wrap it in "content" or send flat JSON. Handle both.
+            const content = j.content || j; 
             
-            // GUARD CLAUSE: Verify data exists before displaying
-            if (j.quote && j.author && j.quote !== "undefined") {
-                setDisplayMode('quote');
-                quoteEl.textContent = "“" + j.quote + "”";
-                authorEl.textContent = "— " + j.author;
+            // GUARD CLAUSE: Strict check to ensure text exists and is NOT "undefined"
+            if (content.quote && content.author && content.quote !== "undefined") {
+                 setDisplayMode('quote');
+                 document.getElementById("quote").textContent = "“" + content.quote + "”";
+                 document.getElementById("author").textContent = "— " + content.author;
             } else {
-                // Silent Failover: Data was missing/corrupt. Try next source.
+                // Silent Retry: Data was missing or invalid. Try next source.
                 setTimeout(loadContent, 2000);
+                return;
             }
 
-
         } else if (j.type === 'weather') {
+            const content = j.content;
+            if (!content || !content.weather) { setTimeout(loadContent, 2000); return; }
+
             setDisplayMode('weather');
-            const forecast = j.content;
+            const weatherData = content.weather; 
+            const forecast = weatherData.forecast; 
+            const current = weatherData.current;   
+            const quoteData = content.quote;
             
+            // Render Weather
             if (Array.isArray(forecast) && forecast.length > 0) {
-                // Clear previous grid only on success
-                iconContainerEl.innerHTML = "";
-                gridEl.innerHTML = ""; 
-
                 const today = forecast[0];
-                iconContainerEl.innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
-                mainEl.textContent = `${Math.round(today.temp)}°F`; 
-                subEl.textContent = today.desc.toUpperCase();
+                document.getElementById("main-icon-container").innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
+                document.getElementById("main-text").textContent = `${Math.round(today.temp)}°F`; 
+                document.getElementById("sub-text").innerHTML = `${today.desc.toUpperCase()} <span class="weather-metrics">Press: ${current.pressure}hPa Hum: ${current.humidity}%</span>`;
 
-                forecast.forEach((day, index) => {
+                const forecastGridEl = document.getElementById("forecast-grid");
+                forecastGridEl.innerHTML = "";
+                weatherData.forecast.forEach((day, index) => {
                     const date = new Date(day.day);
                     const dayString = index === 0 ? "TODAY" : date.toLocaleDateString(undefined, { weekday: 'short' });
                     const item = document.createElement('div');
                     item.className = 'forecast-item';
-                    item.innerHTML = `
-                        <div class="forecast-day">${dayString.toUpperCase()}</div>
-                        <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}">
-                        <div class="forecast-temp">${Math.round(day.temp)}°F</div>
-                    `;
-                    gridEl.appendChild(item);
+                    item.innerHTML = `<div class="forecast-day">${dayString.toUpperCase()}</div><img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" class="weather-icon" alt="${day.desc}"><div class="forecast-temp">${Math.round(day.temp)}°F</div>`;
+                    forecastGridEl.appendChild(item);
                 });
-            } else {
-                // SILENT RETRY: Empty weather data
-                setTimeout(loadContent, 2000);
             }
-
-        } else if (j.type === 'art') {
-            setDisplayMode('art');
-            const art = j.content;
             
-            if (art && art.image_url) {
-                artImageEl.src = art.image_url;
-                artTitleEl.textContent = art.title;
-                artArtistEl.textContent = `By: ${art.artist} (${art.date})`;
+            // Render Weather Quote (Safely)
+            if (quoteData && quoteData.quote && quoteData.quote !== "undefined") {
+                document.getElementById("weather-quote").textContent = "“" + quoteData.quote + "”";
+                document.getElementById("weather-author").textContent = "— " + quoteData.author;
             } else {
-                // SILENT RETRY: Broken image data
-                setTimeout(loadContent, 2000);
+                document.getElementById("weather-quote").textContent = "";
+                document.getElementById("weather-author").textContent = "";
             }
 
+        } else if (j.type === 'art' || j.type === 'harvard' || j.type === 'smithsonian' || j.type === 'flickr') {
+            const imageContent = j.content;
+            
+            if (imageContent && imageContent.image_url) {
+                setDisplayMode(j.type); 
+                document.getElementById("art-image").src = imageContent.image_url;
+                
+                // Flickr has no title/artist text
+                if (j.type !== 'flickr') {
+                    document.getElementById("art-title").textContent = imageContent.title || "";
+                    document.getElementById("art-artist").textContent = (imageContent.artist || imageContent.date) ? 
+                        `By: ${imageContent.artist || ""} (${imageContent.date || ""})` : "";
+                } else {
+                    document.getElementById("art-title").textContent = ""; 
+                    document.getElementById("art-artist").textContent = "";
+                }
+            } else {
+                // Silent Retry: Image URL missing
+                setTimeout(loadContent, 2000);
+                return; 
+            }
+        
         } else {
-          // SILENT RETRY: Unknown type
+          // Silent Retry: Unknown Type
           setTimeout(loadContent, 2000);
+          return;
         }
 
       } catch (e) {
-        // SILENT RETRY: Network Error / JSON Parse Error
-        // Do not show "Application Error"
+        // Silent Retry: Network Error / JSON Parse Error
         setTimeout(loadContent, 2000);
       }
     }
-
 
 
     async function boot() {
