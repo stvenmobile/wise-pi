@@ -94,14 +94,20 @@
 
         const j = await r.json();
 
-        if (j.type === 'quote') {
-            setDisplayMode('quote');
-            if (j.quote) {
+
+	if (j.type === 'quote') {
+            // --- QUOTE MODE ---
+            
+            // GUARD CLAUSE: Verify data exists before displaying
+            if (j.quote && j.author && j.quote !== "undefined") {
+                setDisplayMode('quote');
                 quoteEl.textContent = "“" + j.quote + "”";
                 authorEl.textContent = "— " + j.author;
             } else {
+                // Silent Failover: Data was missing/corrupt. Try next source.
                 setTimeout(loadContent, 2000);
             }
+
 
         } else if (j.type === 'weather') {
             setDisplayMode('weather');
