@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from typing import Tuple, Dict, Union
 import os
 import time
 import requests
@@ -8,8 +9,19 @@ import random
 from pathlib import Path
 import yaml
 
+
 # --- Configuration and Initialization ---
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent  # Moved UP so we can use it in the log path
+
+# Configure logging to write to a file instead of the console
+logging.basicConfig(
+    filename=ROOT / "wise.log",   # File path: ~/wise-pi/dash/app/wise.log
+    filemode='w',                 # 'a' = Append (keeps history), 'w' = Overwrite
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 try:
     with open(ROOT / "config.yaml", "r", encoding="utf-8") as f:
         CFG = yaml.safe_load(f)
