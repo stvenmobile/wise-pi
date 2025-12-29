@@ -128,6 +128,14 @@ html, body, #app {
     justify-content: space-around; 
 }
 
+#weather-forecast-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
 /* 4A. Current Weather Panel (Icon, Temp, Metrics) */
 #current-weather-panel {
     display: flex;
@@ -157,9 +165,12 @@ html, body, #app {
 
 #sub-text {
     font-size: var(--weather-sub-size);
-    display: flex; 
-    white-space: nowrap; /* ADD THIS to prevent wrapping */
-    align-items: baseline;
+    /* Changed from flex to block to ensure text flows as one single line */
+    display: block; 
+    width: 100%;
+    text-align: center;
+    white-space: nowrap; 
+    margin-top: 5px;
 }
 
 /* Pressure/Humidity Separator (No border-left here) */
@@ -170,6 +181,7 @@ html, body, #app {
     margin-left: 10px; 
     padding-right: 10px; 
 }
+
 
 
 /* 4B. Forecast Grid (Directly under current weather) */
