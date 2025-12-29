@@ -98,7 +98,7 @@
                 // Render Current Large Display
                 document.getElementById("main-icon-container").innerHTML = `<img src="https://openweathermap.org/img/wn/${today.icon}@2x.png" class="main-weather-icon" alt="${today.desc}">`;
                 document.getElementById("main-text").textContent = `${Math.round(today.temp)}°F`; 
-                document.getElementById("sub-text").innerHTML = `${today.desc.toUpperCase()} <span class="weather-metrics">Pressure: ${current.pressure} hPa Humidity: ${current.humidity}%</span>`;
+                document.getElementById("sub-text").innerHTML = `${today.desc.toUpperCase()} <span class="weather-metrics">&nbsp;&nbsp; Pressure: ${current.pressure} hPa &nbsp;&nbsp;&nbsp; Humidity: ${current.humidity}%</span>`;
 
                 // Render Forecast Grid
                 const forecastGridEl = document.getElementById("forecast-grid");
