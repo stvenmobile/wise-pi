@@ -1,56 +1,59 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from typing import Tuple, Dict, Union
 import os
 import time
 import requests
 import random
+import logging
 from pathlib import Path
 import yaml
-
+from typing import Dict, Any, Tuple, Union, List
+from urllib.parse import quote_plus
+from dotenv import load_dotenv 
 
 # --- Configuration and Initialization ---
-ROOT = Path(__file__).parent  # Moved UP so we can use it in the log path
+ROOT = Path(__file__).parent
+load_dotenv(ROOT / ".env")
 
-# Configure logging to write to a file instead of the console
-logging.basicConfig(
-    filename=ROOT / "wise.log",   # File path: ~/wise-pi/dash/app/wise.log
-    filemode='w',                 # 'a' = Append (keeps history), 'w' = Overwrite
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# Configure logging
+try:
+    logging.basicConfig(
+        filename=ROOT / "wise.log", 
+        filemode='a', 
+        level=logging.INFO, 
+        format='%(asctime)s - %(levelname)s - %(message)s', 
+        datefmt='%Y-%m-%d %H:%M:%S',
+        force=True 
+    )
+    logging.info("LOGGER STARTED SUCCESSFULLY.")
+except Exception as e:
+    print(f"CRITICAL ERROR: Logger failed to start. {e}")
 
+# State Management
+_last = {"ts": 0, "content": None, "type": "quote"}
+
+# Load configuration
 try:
     with open(ROOT / "config.yaml", "r", encoding="utf-8") as f:
         CFG = yaml.safe_load(f)
 except FileNotFoundError:
     CFG = {}
-    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml not found.")
+    logging.error("STARTUP ERROR: config.yaml not found.")
+except yaml.YAMLError as e:
+    CFG = {}
+    logging.error(f"STARTUP ERROR: config.yaml parse error: {e}")
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
 
-# State Management
-_last = {"ts": 0, "content": None, "type": "quote"}
-
 ROTATION_CFG = CFG.get("rotation", {})
-ROTATION_SEQUENCE = ROTATION_CFG.get("sequence", ["weather", "quote", "art"])
+ROTATION_SEQUENCE = ROTATION_CFG.get("sequence", ["weather", "quote"])
 DURATIONS = ROTATION_CFG.get("durations_seconds", {})
-
-# --- Helper: Universal Fallback (Only used if ALL sources fail) ---
-def get_fallback_quote():
-    fallback = CFG.get("fallback_quotes", [])
-    if fallback:
-        now_int = int(time.time())
-        item = fallback[now_int % len(fallback)]
-        return {"quote": item["q"], "author": item["a"]}
-    return {"quote": "System Offline", "author": "Please check logs"}
 
 # --- Core Fetch Functions ---
 
-def fetch_weather():
+def fetch_weather() -> Tuple[Union[List[Dict], Dict], Union[str, None]]:
     cfg_weather = CFG.get("weather", {})
     api_key = os.environ.get("OPENWEATHER_API_KEY") 
     lat = cfg_weather.get("lat")
@@ -60,8 +63,7 @@ def fetch_weather():
         return None, "Missing API Key (ENV) or Geo Config (YAML)"
 
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=imperial"
-    
-    max_retries = 2 # Initial + 1 Retry
+    max_retries = 2
     retry_delay_sec = 1 
     
     for attempt in range(max_retries):
@@ -70,11 +72,26 @@ def fetch_weather():
             r.raise_for_status() 
             data = r.json()
             
+            if 'list' not in data:
+                logging.error(f"DEBUG FETCH: Weather missing 'list' key. Keys found: {list(data.keys())}")
+                return None, "API response malformed (missing 'list')"
+            
             forecast = []
             seen_days = set()
+            
+            try:
+                current_main = data['list'][0]['main']
+                current_weather_data = {
+                    "pressure": current_main.get('pressure'),
+                    "humidity": current_main.get('humidity')
+                }
+            except (IndexError, KeyError) as e:
+                logging.error(f"DEBUG FETCH: Could not parse current weather: {e}")
+                current_weather_data = {"pressure": 0, "humidity": 0}
+
             for item in data['list']:
                  day_ts = item['dt_txt'].split(' ')[0]
-                 if day_ts not in seen_days and len(forecast) < 5:
+                 if day_ts not in seen_days and len(forecast) < 6: 
                     forecast.append({
                         "day": day_ts,
                         "temp": item['main']['temp'],
@@ -83,23 +100,25 @@ def fetch_weather():
                     })
                     seen_days.add(day_ts)
             
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Weather SUCCESS.")
-            return forecast, None
+            if not forecast:
+                logging.error(f"DEBUG FETCH: Weather SUCCESS but forecast list is EMPTY. Raw items: {len(data.get('list', []))}")
+                raise ValueError("Filtered forecast is empty")
+
+            logging.info(f"DEBUG FETCH: Weather SUCCESS. {len(forecast)} days parsed.")
+            return {"forecast": forecast, "current": current_weather_data}, None
             
         except Exception as e:
+            error_msg = f"Weather API attempt {attempt + 1} failed: {type(e).__name__}: {str(e)}"
+            logging.error(error_msg)
             if attempt < max_retries - 1:
                  time.sleep(retry_delay_sec)
                  continue 
-            
-            error_msg = f"Weather failed after {max_retries} attempts: {type(e).__name__}"
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_msg}")
-            return None, error_msg
-            
-    return None, "Unexpected failure."
+            return None, f"Weather API failed after {max_retries} attempts: {str(e)}"
+    return None, "Unexpected weather API failure."
 
 
 
-def fetch_quote():
+def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     url = "https://zenquotes.io/api/random"
     max_retries = 2
     timeout_sec = 12
@@ -109,46 +128,36 @@ def fetch_quote():
             r = requests.get(url, timeout=timeout_sec)
             r.raise_for_status() 
             data = r.json()
-            
-            # Check if the quote text ('q') is actually present and not empty
             if not data or not data[0].get('q'):
-                raise ValueError("Empty quote data received")
-
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG FETCH: Quote SUCCESS.")
+                return None, "ZenQuotes API returned empty or malformed data."
+            logging.info(f"DEBUG FETCH: ZenQuotes SUCCESS (Status {r.status_code}).")
             return {"quote": data[0]["q"], "author": data[0]["a"]}, None
-            
         except Exception as e:
+            error_msg = f"ZenQuotes API attempt {attempt + 1} failed: {type(e).__name__}"
+            logging.warning(error_msg)
             if attempt < max_retries - 1:
                 time.sleep(0.5)
                 continue
-            
-            error_msg = f"Quote failed after {max_retries} attempts: {type(e).__name__}"
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_msg}")
-            return None, error_msg
-            
-    return None, "Unexpected failure."
+            return None, f"ZenQuotes API failed: {type(e).__name__}: {str(e)}"
+    return None, "Unexpected ZenQuotes API failure."
 
 
 def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
-    """Fetches a random quote from API Ninjas with strict validation."""
-    
     cfg_ninja = CFG.get("ninjaquotes", {})
     api_key = os.environ.get(cfg_ninja.get("api_key_env_var")) 
     topics = cfg_ninja.get("topics", [])
     
     if not api_key:
-        # Return None to trigger failover to next source
         return None, "Missing Ninja API Key (ENV)."
-    
     if not topics:
         return None, "Missing Topics in config."
 
     topic = random.choice(topics)
     encoded_topic = quote_plus(topic)
-
-    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" 
-    headers = {'X-Api-Key': api_key}    
     
+    # CHANGED: Added limit=10 to get a pool of quotes for better randomness
+    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}&limit=10" 
+    headers = {'X-Api-Key': api_key}    
     max_retries = 2
     timeout_sec = 12
 
@@ -158,25 +167,24 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             r.raise_for_status() 
             data = r.json()
             
-            # API Ninjas returns a list. If list is empty or quote key is missing, fail.
-            if not data or not isinstance(data, list) or not data[0].get('quote'):
-                 # Treat as a failure so we can retry or move to next source
-                 raise ValueError(f"Ninja API returned empty/malformed data for: {topic}")
-                 
-            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
+            # CHECK: Ensure we got a list and it is not empty
+            if not data or not isinstance(data, list) or len(data) == 0:
+                 raise ValueError(f"Ninja API returned empty data for: {topic}")
             
-            # Use .get() for author to prevent KeyErrors if field is missing
+            # Now we have 10 items, so this choice is actually random
+            selected_quote = random.choice(data)
+
+            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic} (Pool size: {len(data)})")
             return {
-                "quote": data[0].get("quote"), 
-                "author": data[0].get("author", "Unknown")
+                "quote": selected_quote.get("quote"), 
+                "author": selected_quote.get("author", "Unknown")
             }, None
-        
+            
         except Exception as e:
             if attempt < max_retries - 1:
                 logging.warning(f"Ninja attempt {attempt+1} failed. Retrying...")
                 time.sleep(0.5)
                 continue
-
             error_msg = f"Ninja API failed after {max_retries} attempts: {str(e)}"
             logging.error(error_msg)
             return None, error_msg
@@ -184,69 +192,14 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     return None, "Unexpected failure after maximum retries."
 
 
-def fetch_art():
-    MET_SEARCH_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search"
-    MET_OBJECT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects"
-    
-    max_retries = 2 # Added retry logic for the search phase
 
-    for attempt in range(max_retries):
-        try:
-            search_params = {
-                'q': 'painting OR print OR photograph', 
-                'hasImages': 'true',
-                'isPublicDomain': 'true' 
-            }
-            r_search = requests.get(MET_SEARCH_URL, params=search_params, timeout=10)
-            r_search.raise_for_status()
-            search_data = r_search.json()
-            
-            object_ids = search_data.get('objectIDs', [])
-            if not object_ids:
-                return None, "No object IDs found in search."
-
-            max_sample = 100 
-            sample_ids = random.sample(object_ids, min(max_sample, len(object_ids)))
-            
-            # If search succeeded, break the retry loop and proceed to image fetch
-            break 
-
-        except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            return None, f"Met Art Search failed: {type(e).__name__}"
-
-    # Try to find a valid image in the sample (Internal loop, not a network retry)
-    for obj_id in sample_ids:
-        try:
-            r_object = requests.get(f"{MET_OBJECT_URL}/{obj_id}", timeout=5)
-            r_object.raise_for_status()
-            obj_data = r_object.json()
-            
-            if (obj_data.get('primaryImageSmall') and 
-                obj_data.get('primaryImageWidth', 0) >= obj_data.get('primaryImageHeight', 0)):
-                
-                art_payload = {
-                    "image_url": obj_data['primaryImageSmall'], 
-                    "title": obj_data.get('title', 'Untitled'),
-                    "artist": obj_data.get('artistDisplayName', 'Unknown Artist'),
-                    "date": obj_data.get('objectDate', 'Unknown Date')
-                }
-                return art_payload, None
-
-        except Exception:
-            continue
-
-    return None, "Could not find a suitable image in sample."
-
-# --- Helper Functions ---
+# --- Helper Functions and Root Route ---
 
 @app.get("/")
 def root():
     return FileResponse(str(ROOT / "static" / "index.htm"))
 
-def get_next_type(current_type):
+def get_next_type(current_type: str) -> str:
     try:
         current_index = ROTATION_SEQUENCE.index(current_type)
         next_index = (current_index + 1) % len(ROTATION_SEQUENCE)
@@ -254,16 +207,12 @@ def get_next_type(current_type):
     except ValueError:
         return ROTATION_SEQUENCE[0]
 
-def get_fetch_function(content_type):
-    if content_type == 'weather':
-        return fetch_weather
-    if content_type == 'quote':
-        return fetch_quote
-    if content_type == 'ninjaquotes':
-        return fetch_ninjaquotes
-    if content_type == 'art':
-        return fetch_art
+def get_fetch_function(content_type: str) -> Union[callable, None]:
+    if content_type == 'weather': return fetch_weather
+    if content_type == 'ninjaquotes': return fetch_ninjaquotes
+    if content_type == 'zenquotes': return fetch_zenquotes
     return None
+
 
 # --- API Endpoint Handlers ---
 
@@ -275,53 +224,70 @@ def api_content():
     current_type = _last["type"]
     current_duration = DURATIONS.get(current_type, 60)
     
-    # 1. Check Cache
+    # 1. Check Cache and Duration
     if _last["content"] and (now - _last["ts"] < current_duration):
-        return JSONResponse({"content": _last["content"], "type": current_type, "cached": True})
+        ttl_ms = int((current_duration - (now - _last["ts"])) * 1000)
+        return JSONResponse({"content": _last["content"], "type": current_type, "ttl": max(1000, ttl_ms), "cached": True})
 
-    # 2. Determine Next Type
+    # 2. Determine the NEXT content type and Fetch
     start_type = get_next_type(current_type)
-    
-    # --- FAILOVER LOOP: Attempt to find valid content ---
     tried_types = set()
     next_type = start_type
     new_content = None
-    err = None
+    err = None 
     
-    # Keep trying until we find content or have tried every type
     while new_content is None and next_type not in tried_types:
         fetch_func = get_fetch_function(next_type)
-        
         if not fetch_func:
             tried_types.add(next_type)
             next_type = get_next_type(next_type)
             continue
-            
-        new_content, err = fetch_func()
-        
+        new_content, err = fetch_func() 
         if new_content is None:
-            # If failed, log it, mark this type as tried, and move to next
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] FAILOVER: {next_type} failed ({err}). Trying next.")
+            logging.error(f"FAILOVER: Fetch failed for {next_type}. Error: {err}")
             tried_types.add(next_type)
             next_type = get_next_type(next_type)
-    
-    # 3. Final Result Handling
+        if new_content:
+            break
+            
     if new_content is None:
-        # If absolutely everything failed, use the hardcoded fallback quote
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] CRITICAL: All sources failed.")
-        fallback = get_fallback_quote()
-        return {"quote": fallback["quote"], "author": fallback["author"], "type": "quote", "cached": False}
+        logging.critical("FAILOVER: All sources failed. Displaying permanent failure message.")
+        return JSONResponse({"error": "All content sources failed to load."}, status_code=503)
+
+    content_type = next_type
+    
+    log_msg = f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}."
+    if err:
+        log_msg += f" Error: {err}"
+        logging.warning(log_msg)
+    else:
+        logging.info(log_msg)
 
     # 4. Success Path
-    content_type = next_type # The type that actually succeeded
-    _last.update({"content": new_content, "type": content_type, "ts": now})
+    _last.update({"content": new_content, "type": next_type, "ts": now})
     
-    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] DEBUG ROTATE: Selected {content_type}.")
+    # Calculate TTL
+    next_duration_sec = DURATIONS.get(content_type, 60)
+    ttl_ms = next_duration_sec * 1000
 
-    if content_type == 'quote':
-        return {"quote": new_content["quote"], "author": new_content["author"], "type": "quote", "cached": False}
-    else:
-        return {"content": new_content, "type": content_type, "cached": False}
+    # Build Response
+    response_payload = {
+        "type": content_type,
+        "ttl": ttl_ms,
+        "cached": False
+    }
+
+    if content_type in ['zenquotes', 'ninjaquotes', 'quote']:
+        response_payload.update({
+            "quote": new_content["quote"], 
+            "author": new_content["author"],
+            "type": content_type
+        })
+    elif content_type == 'weather':
+        response_payload["content"] = new_content
+        response_payload["type"] = content_type
+
+    return response_payload
 
 
 @app.get("/api/theme")
@@ -331,4 +297,3 @@ def api_theme():
 @app.get("/api/quote")
 def redirect_old_quote_endpoint():
     return RedirectResponse(url="/api/content")
-
