@@ -18,7 +18,7 @@ from . import flickr
 
 # 1. Define ROOT first so we can use it for the log file path
 ROOT = Path(__file__).parent
-LOG_FILE = ROOT / "app.log"
+LOG_FILE = ROOT / "wisepi.log"  # CHANGED: Log filename
 
 # 2. Configure Logging (File + Console)
 logging.basicConfig(
@@ -26,7 +26,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(LOG_FILE, encoding='utf-8'), # Writes to app.log
+        logging.FileHandler(LOG_FILE, encoding='utf-8'), # Writes to wisepi.log
         logging.StreamHandler()                          # Writes to console
     ]
 )
@@ -568,8 +568,11 @@ def api_content():
     # Determine the actual content type returned (now ONLY the fetch type)
     content_type = next_type
     
-    # Log the result of the entire content cycle
-    logging.info(f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}. Error: {err}")
+    # Log the result of the entire content cycle (Clean Log Logic)
+    if err:
+        logging.info(f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}. Error: {err}")
+    else:
+        logging.info(f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}.")
 
     # 4. Success Path (Guaranteed to succeed past this point)
     _last.update({"content": new_content, "type": next_type, "ts": now})

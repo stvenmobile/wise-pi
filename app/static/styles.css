@@ -122,14 +122,14 @@ html, body, #app {
 #weather-display {
     display: none; /* Controlled by JS */
     flex-direction: column;
-    width: 100%;
+    width: 75%;
     min-height: 90vh; /* Overall height of weather block */
     align-items: center;
     justify-content: space-around; 
 }
 
 #weather-forecast-panel {
-    width: 100%;
+    width: 75%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -141,7 +141,7 @@ html, body, #app {
     display: flex;
     flex-direction: column; /* Stack weather components vertically */
     align-items: center;
-    width: 100%;
+    width: 75%;
     
     /* This panel now takes up the top half of the screen */
     margin-bottom: 5px; 
