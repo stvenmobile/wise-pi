@@ -15,8 +15,21 @@ from urllib.parse import quote_plus
 from . import flickr 
 
 # --- Configuration and Initialization ---
-logging.basicConfig(level=logging.INFO)
+
+# 1. Define ROOT first so we can use it for the log file path
 ROOT = Path(__file__).parent
+LOG_FILE = ROOT / "app.log"
+
+# 2. Configure Logging (File + Console)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding='utf-8'), # Writes to app.log
+        logging.StreamHandler()                          # Writes to console
+    ]
+)
 
 # State Management (Tracks current type and last update time)
 _last = {"ts": 0, "content": None, "type": "quote"}
@@ -27,10 +40,10 @@ try:
         CFG = yaml.safe_load(f)
 except FileNotFoundError:
     CFG = {}
-    logging.error(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml not found.")
+    logging.error("STARTUP ERROR: config.yaml not found.")
 except yaml.YAMLError as e:
     CFG = {}
-    logging.error(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR STARTUP: config.yaml parse error: {e}")
+    logging.error(f"STARTUP ERROR: config.yaml parse error: {e}")
 
 
 app = FastAPI()
