@@ -195,67 +195,60 @@ def fetch_zenquotes() -> Tuple[Dict[str, str], Union[str, None]]:
 
 
 
-
 def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
-    """Fetches a random quote from API Ninjas, selected from configured topics."""
-    
     cfg_ninja = CFG.get("ninjaquotes", {})
-    # Retrieve API key from environment
     api_key = os.environ.get(cfg_ninja.get("api_key_env_var")) 
     topics = cfg_ninja.get("topics", [])
     
     if not api_key:
-        logging.error("DEBUG FETCH: Ninja Quote FAILED. API Key not found in environment.")
         return None, "Missing Ninja API Key (ENV)."
-    
     if not topics:
-        logging.error("DEBUG FETCH: Ninja Quote FAILED. Topics list is empty in config.")
         return None, "Missing Topics in config."
 
-    # 1. Select a random topic to keep queries varied
     topic = random.choice(topics)
     encoded_topic = quote_plus(topic)
-
-    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}" 
-    headers = {'X-Api-Key': api_key}    
     
+    # UPDATED: Use /v2/randomquotes
+    # CRITICAL: Parameter is now 'categories' (plural), not 'category'
+    # REMOVED: limit=10 (Premium only feature, defaults to 1 on free tier)
+    url = f"https://api.api-ninjas.com/v2/randomquotes?categories={encoded_topic}"
+    headers = {'X-Api-Key': api_key}    
     max_retries = 2
     timeout_sec = 12
-    status_code = None
 
     for attempt in range(max_retries):
         try:
-            # CRITICAL: Use the custom header for authentication
             r = requests.get(url, headers=headers, timeout=timeout_sec)
-            r.raise_for_status() # Raises an HTTPError for 4xx/5xx responses
+            r.raise_for_status() 
             data = r.json()
             
-            # API Ninjas returns a list of quotes; take the first one
-            if not data or not data[0].get('quote'):
-                 return None, f"Ninja API returned no quote for category: {topic}"
-                 
-            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic}.")
-            return {"quote": data[0]["quote"], "author": data[0]["author"]}, None
-        
-        except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code
+            # CHECK: Ensure we got a list and it is not empty
+            if not data or not isinstance(data, list) or len(data) == 0:
+                 # If specific topic fails, you might want to log it and retry 
+                 # or fall back to no topic, but raising error is fine for now.
+                 raise ValueError(f"Ninja API returned empty data for: {topic}")
             
-            if attempt == max_retries - 1:
-                logging.warning(f"DEBUG FETCH: Ninja Quote FAILED (HTTP {status_code}). Falling back.")
-                return None, f"Max retries exceeded. Last error: HTTP {status_code}"
-            
-            logging.warning(f"Ninja API attempt {attempt+1} failed with status: {status_code}")
-            time.sleep(0.5)
+            # Since limit is likely 1, we just take the first item.
+            # The API has already done the "randomizing" for us.
+            selected_quote = data[0]
 
+            logging.info(f"DEBUG FETCH: Ninja Random Success | Topic: {topic} | Quote: {selected_quote.get('quote')[:30]}...")
+            return {
+                "quote": selected_quote.get("quote"), 
+                "author": selected_quote.get("author", "Unknown")
+            }, None
+            
         except Exception as e:
-            # Catch all other exceptions (network, JSON parsing)
-            error_msg = f"Non-HTTP Error: {type(e).__name__}: {str(e)}"
-            if attempt == max_retries - 1:
-                logging.error(f"DEBUG FETCH: Ninja Quote FAILED. Last error: {error_msg}")
-                return None, f"Max retries exceeded. Last error: {type(e).__name__}"
-            time.sleep(0.5)
+            if attempt < max_retries - 1:
+                logging.warning(f"Ninja attempt {attempt+1} failed. Retrying...")
+                time.sleep(0.5)
+                continue
+            error_msg = f"Ninja API failed after {max_retries} attempts: {str(e)}"
+            logging.error(error_msg)
+            return None, error_msg
             
     return None, "Unexpected failure after maximum retries."
+
 
 
 def fetch_art() -> Tuple[Union[Dict, None], Union[str, None]]:
