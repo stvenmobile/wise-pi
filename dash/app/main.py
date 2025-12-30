@@ -19,7 +19,7 @@ load_dotenv(ROOT / ".env")
 # Configure logging
 try:
     logging.basicConfig(
-        filename=ROOT / "wise.log", 
+        filename=ROOT / "wisepi.log", 
         filemode='a', 
         level=logging.INFO, 
         format='%(asctime)s - %(levelname)s - %(message)s', 
