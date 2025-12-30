@@ -22,6 +22,6 @@ weather:
 rotation:
   sequence: ["ninjaquotes", "zenquotes", "weather"]
   durations_seconds:
-    weather: 60
-    zenquotes: 60
-    ninjaquotes: 60
+    weather: 600
+    zenquotes: 600
+    ninjaquotes: 600

@@ -155,8 +155,10 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
     topic = random.choice(topics)
     encoded_topic = quote_plus(topic)
     
-    # CHANGED: Added limit=10 to get a pool of quotes for better randomness
-    url = f"https://api.api-ninjas.com/v2/quotes?category={encoded_topic}&limit=10" 
+    # UPDATED: Use /v2/randomquotes
+    # CRITICAL: Parameter is now 'categories' (plural), not 'category'
+    # REMOVED: limit=10 (Premium only feature, defaults to 1 on free tier)
+    url = f"https://api.api-ninjas.com/v2/randomquotes?categories={encoded_topic}"
     headers = {'X-Api-Key': api_key}    
     max_retries = 2
     timeout_sec = 12
@@ -169,12 +171,15 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             
             # CHECK: Ensure we got a list and it is not empty
             if not data or not isinstance(data, list) or len(data) == 0:
+                 # If specific topic fails, you might want to log it and retry 
+                 # or fall back to no topic, but raising error is fine for now.
                  raise ValueError(f"Ninja API returned empty data for: {topic}")
             
-            # Now we have 10 items, so this choice is actually random
-            selected_quote = random.choice(data)
+            # Since limit is likely 1, we just take the first item.
+            # The API has already done the "randomizing" for us.
+            selected_quote = data[0]
 
-            logging.info(f"DEBUG FETCH: Ninja Quote SUCCESS for topic: {topic} (Pool size: {len(data)})")
+            logging.info(f"DEBUG FETCH: Ninja Random Success | Topic: {topic} | Quote: {selected_quote.get('quote')[:30]}...")
             return {
                 "quote": selected_quote.get("quote"), 
                 "author": selected_quote.get("author", "Unknown")
@@ -190,7 +195,6 @@ def fetch_ninjaquotes() -> Tuple[Dict[str, str], Union[str, None]]:
             return None, error_msg
             
     return None, "Unexpected failure after maximum retries."
-
 
 
 # --- Helper Functions and Root Route ---
