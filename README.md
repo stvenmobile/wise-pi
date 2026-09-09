@@ -165,21 +165,33 @@ Try launching it manually to see errors directly:
 DISPLAY=:0 XAUTHORITY=/home/<user>/.Xauthority chromium --kiosk http://localhost:8000
 ```
 
-### Monitor is a solid grey screen — no text, no images, nothing (backend and Chromium both confirmed running)
-This is a known Raspberry Pi GPU-rendering issue, not a content problem. Raspberry Pi OS's `chromium` wrapper auto-injects `--enable-gpu-rasterization --use-angle=gles`, and on some Pi 4/5 + Mesa/V3D driver combinations that combination initializes the GPU compositor but never actually paints a frame to the display — Chromium (and its GPU process) keep running, but nothing is ever drawn. A telltale sign is the Chromium `--type=gpu-process` accumulating almost no CPU time even though the page is actively refreshing content underneath.
+### Monitor shows a blank/grey (or white-then-grey) screen forever — backend and Chromium both confirmed running
+This is a **boot-time race**, not a persistent rendering bug. On a cold boot, the kiosk's autostart entry used to fire after a flat `sleep 10`, but two things it doesn't wait for can legitimately take longer than that:
 
-Fix: disable GPU rendering for the kiosk. This repo's `autostart/wisepi-kiosk.desktop` already includes `--disable-gpu` in its `Exec=` line — if you're hitting this, confirm your deployed copy at `~/.config/autostart/wisepi-kiosk.desktop` has it too (older checkouts won't):
-```bash
-grep -- --disable-gpu ~/.config/autostart/wisepi-kiosk.desktop
-```
-If it's missing, edit the `Exec=` line to add `--disable-gpu` alongside the other flags, then `pkill -f chromium` and reboot to confirm the autostart entry picks it up cleanly.
+- `wise-pi.service` depends on `network-online.target` and may not actually be listening on port 8000 yet.
+- The network interface itself (especially Wi-Fi) can still be negotiating/settling after `network-online.target` is nominally reached.
 
-You can test the theory live before editing anything:
-```bash
-pkill -f chromium
-DISPLAY=:0 XAUTHORITY=/home/<user>/.Xauthority chromium --disable-gpu --incognito --no-first-run --noerrdialogs --password-store=basic --kiosk --disable-web-security http://localhost:8000/
+If Chromium's very first (and only) navigation to `http://localhost:8000/` happens during that window, the page load can fail, or the underlying network interface change can crash Chromium's network service mid-load (look for `Network service crashed, restarting service` in the log — see below). Since `--kiosk` never retries a failed top-level navigation, the screen is then stuck blank/grey indefinitely even after the backend comes up moments later.
+
+Fix (already baked into this repo's `autostart/wisepi-kiosk.desktop`): don't launch Chromium on a fixed timer — wait for both the network and the backend to actually be ready first, and disable GPU rendering as a secondary hardening measure:
 ```
-(Omitting `--password-store=basic` here will trigger a GNOME keyring unlock prompt — harmless, but include it to match the real kiosk flags and avoid the prompt.)
+Exec=/bin/bash -c "until systemctl is-active --quiet network-online.target; do sleep 1; done; for i in $(seq 1 30); do curl -sf http://localhost:8000/ >/dev/null && break; sleep 1; done; /usr/bin/chromium --disable-gpu --no-first-run --noerrdialogs --disable-infobars --password-store=basic --kiosk --disable-web-security http://localhost:8000/ > /home/steve/chromium-kiosk.log 2>&1"
+```
+If you're hitting this on an older checkout, confirm your deployed copy has the wait loops (not just a flat `sleep`):
+```bash
+cat ~/.config/autostart/wisepi-kiosk.desktop
+```
+
+The `> /home/steve/chromium-kiosk.log 2>&1` redirect is left in permanently (harmless, low volume) so that if this ever recurs you can check what actually happened on that boot without needing to reproduce it interactively:
+```bash
+cat /home/steve/chromium-kiosk.log
+dmesg | grep -iE "v3d|vc4|drm" | tail -40   # rule out an actual GPU/DRM driver problem
+```
+
+Notes from diagnosing this:
+- A plain `--disable-gpu` flag alone was **not** sufficient by itself — it's kept as defense-in-depth (verified via the running process's flags falling back to `--use-angle=swiftshader-webgl`, i.e. software rendering), but the actual stuck-grey-screen cause was the boot race above.
+- Keep the Pi's OS packages up to date (`sudo apt update && sudo apt full-upgrade -y`) — a system package upgrade was applied around the time this was last fixed, so a driver/Chromium/NetworkManager fix on Raspberry Pi's end may also be a contributing factor, not just the autostart script change.
+- If you can test with a wired Ethernet connection, that's a good way to rule out Wi-Fi timing entirely; if your install location requires Wi-Fi (as this one does), the wait-loop approach above is the fix that doesn't depend on network type.
 
 
 
