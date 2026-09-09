@@ -2,5 +2,5 @@
 Type=Application
 Name=WisePi Kiosk
 Comment=Launch Chromium to the local dash
-Exec=/bin/bash -c "sleep 10; /usr/bin/chromium --no-first-run --noerrdialogs --disable-infobars --password-store=basic --kiosk --disable-web-security  http://localhost:8000/"
+Exec=/bin/bash -c "sleep 10; /usr/bin/chromium --disable-gpu --no-first-run --noerrdialogs --disable-infobars --password-store=basic --kiosk --disable-web-security  http://localhost:8000/"
 X-GNOME-Autostart-enabled=true
