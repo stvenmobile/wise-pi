@@ -34,7 +34,8 @@ harvard:
 rotation:
   sequence: ["flickr","weather","flickr","smithsonian","flickr","ninjaquotes","flickr","zenquotes"] 
   # sequence: ["flickr ","weather"] 
-durations_seconds:
+  # seconds each source stays on screen (must sit under rotation:)
+  durations_seconds:
     weather: 120
     ninjaquotes: 120
     zenquotes: 120

@@ -31,8 +31,11 @@ logging.basicConfig(
     ]
 )
 
-# State Management (Tracks current type and last update time)
-_last = {"ts": 0, "content": None, "type": "quote"}
+# State Management (Tracks current type, its position in the rotation sequence, and last update time)
+# "index" is the position in ROTATION_SEQUENCE, not the type: a type can appear in the
+# sequence several times (e.g. flickr between every other source), so looking the type up
+# by name would always land on its first occurrence.
+_last = {"ts": 0, "content": None, "type": "quote", "index": -1}
 
 # Load configuration once at startup
 try:
@@ -483,13 +486,9 @@ def fetch_flickr() -> Tuple[Union[Dict, None], Union[str, None]]:
 def root():
     return FileResponse(str(ROOT / "static" / "index.htm"))
 
-def get_next_type(current_type: str) -> str:
-    try:
-        current_index = ROTATION_SEQUENCE.index(current_type)
-        next_index = (current_index + 1) % len(ROTATION_SEQUENCE)
-        return ROTATION_SEQUENCE[next_index]
-    except ValueError:
-        return ROTATION_SEQUENCE[0]
+def get_next_index(current_index: int) -> int:
+    """Position after current_index in ROTATION_SEQUENCE (wrapping around)."""
+    return (current_index + 1) % len(ROTATION_SEQUENCE)
 
 def get_fetch_function(content_type: str) -> Union[callable, None]:
     if content_type == 'weather':
@@ -522,34 +521,35 @@ def api_content():
     if _last["content"] and (now - _last["ts"] < current_duration):
         return JSONResponse({"content": _last["content"], "type": current_type, "cached": True})
 
-    # 2. Determine the NEXT content type and Fetch
-    start_type = get_next_type(current_type)
-    
-    # --- FAILOVER LOOP: Attempt to find valid content ---
-    tried_types = set()
-    next_type = start_type
-    
-    new_content = None
-    
-    while new_content is None and next_type not in tried_types:
+    # 2. Determine the NEXT position in the sequence and Fetch
+    # --- FAILOVER LOOP: walk the sequence once from the next position until a source works ---
+    # A type that already failed this round is skipped at its later positions too.
+    failed_types = set()
+    next_index = _last["index"]
+    next_type = None
+    new_content, err = None, None
+
+    for _ in range(len(ROTATION_SEQUENCE)):
+        next_index = get_next_index(next_index)
+        next_type = ROTATION_SEQUENCE[next_index]
+        if next_type in failed_types:
+            continue
+
         fetch_func = get_fetch_function(next_type)
         if not fetch_func:
-            tried_types.add(next_type)
-            next_type = get_next_type(next_type)
+            logging.error(f"FAILOVER: Unknown content type '{next_type}' in rotation sequence.")
+            failed_types.add(next_type)
             continue
-            
+
         # Attempt to fetch content
-        new_content, err = fetch_func() 
-        
-        # Log failure and continue loop if necessary
-        if new_content is None:
-            logging.error(f"FAILOVER: Fetch failed for {next_type}. Error: {err}")
-            tried_types.add(next_type)
-            next_type = get_next_type(next_type)
-        
-        # If fetch succeeded, break the loop
+        new_content, err = fetch_func()
+
+        # If fetch succeeded, stop; otherwise log and move on to the next position
         if new_content:
             break
+        logging.error(f"FAILOVER: Fetch failed for {next_type}. Error: {err}")
+        failed_types.add(next_type)
+        new_content = None
             
     # --- 3. Final Result Handling ---
     
@@ -568,7 +568,7 @@ def api_content():
         logging.info(f"DEBUG ROTATE: Selected {next_type}. Result: {content_type}.")
 
     # 4. Success Path (Guaranteed to succeed past this point)
-    _last.update({"content": new_content, "type": next_type, "ts": now})
+    _last.update({"content": new_content, "type": next_type, "index": next_index, "ts": now})
     
     # Format output based on content type
     if content_type in ['zenquotes', 'ninjaquotes']:
